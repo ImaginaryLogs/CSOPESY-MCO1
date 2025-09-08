@@ -13,7 +13,7 @@ public:
   void operator()()
   {
     using clock = std::chrono::steady_clock;
-    const auto slice = std::chrono::milliseconds(500);
+    const auto slice = std::chrono::milliseconds(5);
 
     while (true)
     {
@@ -25,14 +25,16 @@ public:
       auto deadline = clock::now() + slice;
 
       clearScreen();
-      while (clock::now() < deadline && ctx.running){
+      int turns = 0;
+      while ((clock::now() < deadline && turns++ < 10) && ctx.running ){
         lock.unlock();
-        std::cout << getCurrentFrame() << std::flush;
+        std::cout << getCurrentFrame() << turns << std::flush;
 
         lock.lock();
 
         if (!ctx.running) break;
       }
+      std::cout << "\n" << std::flush;
 
       ctx.turn = SyncContext::Turn::Input;
       lock.unlock();
