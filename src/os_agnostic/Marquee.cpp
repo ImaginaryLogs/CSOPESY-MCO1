@@ -1,6 +1,6 @@
-#include "display.cpp"
-#include "scanner.cpp"
-#include "contract.cpp"
+#include "DisplayHandler.cpp"
+#include "KeyboardHandler.cpp"
+#include "Context.cpp"
 #include <thread>
 #include <mutex>
 
@@ -11,27 +11,24 @@ private:
   ScreenDisplay display;
   InputScanner scanner;
   bool isRunning;
-  SyncContext ctx;
+  MarqueeContext ctx;
 
 public:
-  MarqueeConsole()
-    : display(ctx),
-      scanner(ctx)
-  {}
+  MarqueeConsole() : display(ctx), scanner(ctx) {}
 
-  void runLoop()
+  ~MarqueeConsole() { stop(); }
+
+  void runDispatcher()
   {
     isRunning = true;
 
     ScreenDisplay display(ctx);
     InputScanner scanner(ctx);
-    
+
     std::thread display_thread(std::ref(display));
     std::thread scanner_thread(std::ref(scanner));
 
-
-    std::this_thread::sleep_for(std::chrono::seconds(5)); // run for 5s
-    stop();
+    while (isRunning)
 
     display_thread.join();
     scanner_thread.join();

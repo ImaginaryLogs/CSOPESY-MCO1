@@ -2,13 +2,13 @@
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
-#include "contract.cpp"
+#include "Context.cpp"
 #include <functional>
 
 class ScreenDisplay
 {
 public:
-  explicit ScreenDisplay(SyncContext &ctx) : ctx(ctx) {}
+  explicit ScreenDisplay(MarqueeContext &ctx) : ctx(ctx) {}
 
   void operator()()
   {
@@ -19,24 +19,29 @@ public:
     {
       std::unique_lock<std::mutex> lock(ctx.screenLock);
       ctx.cv.wait(lock, displayTurnPredicate);
-      
-      if (!ctx.running) break;
-      
+
+      if (!ctx.running)
+        break;
+
       auto deadline = clock::now() + slice;
 
       clearScreen();
       int turns = 0;
-      while ((clock::now() < deadline && turns++ < 10) && ctx.running ){
+      while ((clock::now() < deadline && turns++ < 10) && ctx.running)
+      {
         lock.unlock();
-        std::cout << getCurrentFrame() << turns << std::flush;
+        std::chrono::duration<double> time = clock::now().time_since_epoch();
+        std::cout << time.count() << getCurrentFrame() << std::flush;
 
         lock.lock();
 
-        if (!ctx.running) break;
+        if (!ctx.running)
+          break;
       }
-      std::cout << "\n" << std::flush;
+      std::cout << "\n"
+                << std::flush;
 
-      ctx.turn = SyncContext::Turn::Input;
+      ctx.turn = MarqueeContext::Turn::Input;
       lock.unlock();
       ctx.cv.notify_all();
     }
@@ -48,18 +53,20 @@ public:
     return running;
   }
   void setVideo(const std::string &videoName);
-  void clearScreen(){
+  void clearScreen()
+  {
     std::cout << "\033[2J\033[1;1H";
   };
 
 private:
-  SyncContext &ctx;
+  MarqueeContext &ctx;
   bool running = false;
-  std::string getCurrentFrame(){
+  std::string getCurrentFrame()
+  {
     return "Video Frame Test\n";
   };
 
-  bool isDisplayTurn(){ return ctx.turn == SyncContext::Turn::Display || !ctx.running;};
+  bool isDisplayTurn() { return ctx.turn == MarqueeContext::Turn::Display || !ctx.running; };
 
   // Lambda Expression for condition variable
   std::function<bool()> displayTurnPredicate = [this]()

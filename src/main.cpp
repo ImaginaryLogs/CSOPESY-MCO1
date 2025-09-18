@@ -3,11 +3,15 @@
 #include <string>
 #include <thread>
 #include <chrono>
-#include "marquee.cpp"
+#include "os_agnostic/Marquee.cpp"
 
 int main()
 {
   MarqueeConsole console;
-  console.runLoop();
+
+  console.runDispatcher();
+  
+  std::cout << "Finished Execution!";
+
   return 0;
 }
