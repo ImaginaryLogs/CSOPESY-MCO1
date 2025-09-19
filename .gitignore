@@ -1,1 +1,28 @@
 bin/*
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS build outputs
+Debug/
+Release/
+x64/
+x86/
+ipch/
+*.obj
+*.pch
+*.pdb
+*.idb
+*.ilk
+*.log
+
+# CMake (if you used it)
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+out/
+build/
