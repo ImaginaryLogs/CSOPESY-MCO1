@@ -4,6 +4,8 @@
 #include <optional>
 #include <future>
 #include "../os_dependent/ScannerLibrary.cpp"
+#include "DisplayHandler.cpp"
+#include "AudioHandler.cpp"
 #include <iostream>
 #include <string>
 #include <queue>
@@ -23,9 +25,6 @@ class CommandHandler : public Handler
     std::cout << "... Command Handler is waiting." << std::endl;
     this->ctx.phase_barrier.arrive_and_wait();
     std::cout << "... Command Handler is starting." << std::endl;
-
-    
-
 
     auto predicateHasCommand = [this] {
       return !commandQueue.empty();
@@ -92,12 +91,18 @@ class CommandHandler : public Handler
     this->display->ping();
   }
 
+  void addAudioHandler(AudioHandler *a){
+    this->audio = a;
+    this->audio->ping();
+  }
 
   private:
   std::queue<std::string> commandQueue;
   std::mutex queueMutex;
   std::condition_variable cv;
   DisplayHandler *display;
+  AudioHandler *audio;
+  
 
   std::vector<std::string> parseArgs(const std::string& input){
     std::vector<std::string> args;

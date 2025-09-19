@@ -30,7 +30,7 @@ public:
     CommandHandler commander(ctx);
     DisplayHandler display(ctx);
     KeyboardHandler scanner(ctx);
-    
+    AudioHandler audio(ctx);
     
     scanner.connectHandler(
       [&commander](const std::string& input){
@@ -38,6 +38,10 @@ public:
       }
     );
     commander.addDisplayHandler(&display);
+    commander.addAudioHandler(&audio);
+
+    audio.load("media/output_audio.mp3");
+    audio.play();
 
     std::thread command_thread(std::ref(commander));
     std::thread scanner_thread(std::ref(scanner));

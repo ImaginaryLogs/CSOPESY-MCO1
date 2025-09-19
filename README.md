@@ -30,6 +30,15 @@ A marquee console (for now!).
 
 > [fill up]
 
+For Linux-based OS, please make sure to have `sfml` library installed.
+
+You may install through this command:
+
+- `sudo apt-get install libsfml-dev`
+- `sudo pacman -S sfml`
+
+Link to the website: <https://www.sfml-dev.org/tutorials/3.0/getting-started/linux/#installing-sfml>]
+
 ### 2.2. Installation
 
 > [fill up]

@@ -5,6 +5,8 @@
 #include "Context.cpp"
 #include <functional>
 
+#pragma once
+
 class DisplayHandler : public Handler
 {
 public:

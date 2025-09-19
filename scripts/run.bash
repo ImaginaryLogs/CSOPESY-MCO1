@@ -1,3 +1,2 @@
-cd bin
 
-./app
+./bin/app

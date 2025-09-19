@@ -60,10 +60,13 @@ public:
     }
 
     disableRaw();
+    
     return out;
     
 #endif
   }
+
+
 
 private:
 #ifndef _WIN32
