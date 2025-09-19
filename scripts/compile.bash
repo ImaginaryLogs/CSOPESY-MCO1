@@ -1,3 +1,3 @@
-g++ -std=c++17 -Wall -Wextra -O2 \
+g++ -std=c++23 -Wall \
     src/main.cpp \
     -o bin/app

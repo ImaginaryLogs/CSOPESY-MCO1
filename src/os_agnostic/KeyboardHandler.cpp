@@ -1,78 +1,67 @@
 #include "Context.cpp"
 #include <optional>
 #include <future>
-#include "os_depedent/ScannerLibrary.cpp"
+#include "../os_dependent/ScannerLibrary.cpp"
 #include <iostream>
 #include <string>
 #include <chrono>
 #pragma once
 
-class InputScanner
+class KeyboardHandler : public Handler
 {
 public:
-  explicit InputScanner(MarqueeContext &c) : ctx(c) {}
+  KeyboardHandler(MarqueeContext& c) : Handler(c) {}
 
   void operator()()
   {
-    using clock = std::chrono::steady_clock;
-    const auto slice = std::chrono::milliseconds(50); // input gets 0.05s
+    std::cout << "... Keyboard Handler is waiting." << std::endl;
+    this->ctx.phase_barrier.arrive_and_wait();
+    std::cout << "... Keyboard Handler is starting." << std::endl;
 
     while (true)
     {
-      std::unique_lock<std::mutex> lock(ctx.screenLock);
-      ctx.cv.wait(lock, scannerTurnPredicate);
-      if (!ctx.running)
-        break;
+      auto ch = CrossPlatformChar::readCharFor(slice);
+      
+      if (!ch) continue;
+      
+      std::cout << "\"" << partialBuffer << "\"" << std::endl;
 
-      auto deadline = clock::now() + slice;
-      while (clock::now() < deadline && ctx.running)
+      switch (*ch)
       {
-        lock.unlock();
-
-        std::cout << "\rInput: " << partialBuffer << std::flush;
-        auto ch = CrossPlatformChar::readCharFor(slice);
-        // std::cout << "\rInput: " << partialBuffer << std::flush;
-        if (ch)
-        {
-          if (*ch == '\r' || *ch == '\n')
-          {
-
-            partialBuffer.clear();
-            // done for this slice
-          }
-          else if (*ch == 127)
-          {
-            if (!partialBuffer.empty())
-            {
-              partialBuffer.pop_back();
-            }
-          }
-          else
-          {
-            partialBuffer.push_back(*ch);
-          }
+      case '\r':
+      case '\n':
+  
+        if (commandHandlerCallback) {
+          std::cout << "Callback Present" << std::endl;
+          commandHandlerCallback(partialBuffer);
         }
 
-        lock.lock();
-        if (!ctx.running)
-          break;
+        partialBuffer.clear();
+        break;
+      case 127:
+        if (!partialBuffer.empty())
+        {
+          partialBuffer.pop_back();
+        }
+        break;
+      default:
+        partialBuffer.push_back(*ch);
+        break;
       }
 
-      ctx.turn = MarqueeContext::Turn::Display;
-      lock.unlock();
-      ctx.cv.notify_all();
+      std::this_thread::sleep_for(slice);
     }
   };
-  void processChoice();
+  
+  void connectHandler(std::function<void(const std::string&)> callbackF){
+    std::cout << "... Connecting Handler" << std::endl;
+    commandHandlerCallback = std::move(callbackF);    
+  };
 
 private:
-  MarqueeContext &ctx;
   std::string partialBuffer;
-
+  const std::chrono::duration<int64_t, std::milli> slice = std::chrono::milliseconds(50); // input gets 0.05s
   bool running = false;
   std::string getUserInput();
-
-  bool isScannerTurn() { return ctx.turn == MarqueeContext::Turn::Input || !ctx.running; };
-  std::function<bool()> scannerTurnPredicate = [this]()
-  { return isScannerTurn(); };
+  std::function<void(const std::string&)> commandHandlerCallback;
 };

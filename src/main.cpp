@@ -9,7 +9,7 @@ int main()
 {
   MarqueeConsole console;
 
-  console.runDispatcher();
+  console.run();
   
   std::cout << "Finished Execution!";
 

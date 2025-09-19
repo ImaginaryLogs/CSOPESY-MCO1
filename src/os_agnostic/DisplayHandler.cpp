@@ -5,70 +5,57 @@
 #include "Context.cpp"
 #include <functional>
 
-class ScreenDisplay
+class DisplayHandler : public Handler
 {
 public:
-  explicit ScreenDisplay(MarqueeContext &ctx) : ctx(ctx) {}
+  DisplayHandler(MarqueeContext& c) : Handler(c) {}
 
   void operator()()
   {
-    using clock = std::chrono::steady_clock;
-    const auto slice = std::chrono::milliseconds(5);
-
-    while (true)
-    {
-      std::unique_lock<std::mutex> lock(ctx.screenLock);
-      ctx.cv.wait(lock, displayTurnPredicate);
-
-      if (!ctx.running)
-        break;
-
-      auto deadline = clock::now() + slice;
-
-      clearScreen();
-      int turns = 0;
-      while ((clock::now() < deadline && turns++ < 10) && ctx.running)
-      {
-        lock.unlock();
-        std::chrono::duration<double> time = clock::now().time_since_epoch();
-        std::cout << time.count() << getCurrentFrame() << std::flush;
-
-        lock.lock();
-
-        if (!ctx.running)
-          break;
+    std::cout << "... Display Handler is waiting." << std::endl;
+    this->ctx.phase_barrier.arrive_and_wait();
+    std::cout << "... Display Handler is starting." << std::endl;
+    while (true) {
+      if (isVideoRunning) {
+        clearScreen();
+        std::cout << getCurrentFrame() << std::endl;
       }
-      std::cout << "\n"
-                << std::flush;
 
-      ctx.turn = MarqueeContext::Turn::Input;
-      lock.unlock();
-      ctx.cv.notify_all();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 60)); // Approx 60 FPS
     }
   };
 
+
+
+
+  bool startVideo()
+  {
+    isVideoRunning = true;
+    return isVideoRunning;
+  }
+
   bool stopVideo()
   {
-    running = false;
-    return running;
+    isVideoRunning = false;
+    return isVideoRunning;
   }
-  void setVideo(const std::string &videoName);
+
+  std::string getCurrentFrame()
+  {
+    return currentFrame;
+  };
+
+  void setVideo(const std::string &videoName)
+  {
+    currentFrame = videoName;
+  };
+
   void clearScreen()
   {
     std::cout << "\033[2J\033[1;1H";
   };
 
 private:
-  MarqueeContext &ctx;
-  bool running = false;
-  std::string getCurrentFrame()
-  {
-    return "Video Frame Test\n";
-  };
-
-  bool isDisplayTurn() { return ctx.turn == MarqueeContext::Turn::Display || !ctx.running; };
-
-  // Lambda Expression for condition variable
-  std::function<bool()> displayTurnPredicate = [this]()
-  { return isDisplayTurn(); };
+  std::string currentFrame;
+  std::atomic<bool> isVideoRunning{false};
 };

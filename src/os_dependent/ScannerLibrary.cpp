@@ -7,10 +7,11 @@
 #include <sys/select.h> // for select()
 #endif
 
-#pragma once
+
 #include <optional>
 #include <chrono>
 
+#pragma once
 class CrossPlatformChar
 {
 public:
