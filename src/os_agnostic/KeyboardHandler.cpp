@@ -24,7 +24,7 @@ public:
       
       if (!ch) continue;
       
-      std::cout << "\"" << partialBuffer << "\"" << std::endl;
+      
 
       switch (*ch)
       {
@@ -49,8 +49,10 @@ public:
         break;
       }
 
+      std::cout << "\"" << partialBuffer << "\"" << std::endl;
       std::this_thread::sleep_for(slice);
     }
+    
   };
   
   void connectHandler(std::function<void(const std::string&)> callbackF){

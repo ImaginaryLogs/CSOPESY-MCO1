@@ -42,18 +42,35 @@ class CommandHandler : public Handler
 
         std::string command = commandQueue.front();
         commandQueue.pop();
-        std::istringstream iss(command);
-        std::string firstArg;
-        iss >> firstArg;
+        
         
 
         // Process the command
         std::cout << "Processing command: " << command << std::endl;
+        auto args = parseArgs(command);
 
-        if (firstArg.rfind("video", 0) == 0) {
-          if (firstArg.rfind("set", 1) == 0) {
-            
+        if (args[0] == "video") {
+
+          if (args.size() < 2) {
+            std::cout << "Missing video subcommand" << std::endl;
+          } else if (args[1] == "ping"){
+            this->display->ping();
+          } else if (args[1] == "display"){
+            if (args.size() < 3) {
+                std::cout << "Missing argument for video display" << std::endl;
+            } else {
+              this->display->displayString(args[2]);
+            }
+          } else if (args[1] == "start"){
+            this->display->startVideo();
+          } else if (args[1] == "pause"){
+            this->display->stopVideo();
+          } else {
+            std::cout << "Not recognized video command" << std::endl;
           }
+
+        } else {
+          std::cout << "Not recognized command" << std::endl;
         }
 
         
@@ -68,11 +85,37 @@ class CommandHandler : public Handler
     cv.notify_one();
   };
 
-  
+
+
+  void addDisplayHandler(DisplayHandler *d){
+    this->display = d;
+    this->display->ping();
+  }
+
 
   private:
   std::queue<std::string> commandQueue;
   std::mutex queueMutex;
   std::condition_variable cv;
+  DisplayHandler *display;
+
+  std::vector<std::string> parseArgs(const std::string& input){
+    std::vector<std::string> args;
+    std::istringstream iss(input);
+    std::string token;
+
+    while (iss >> std::ws) { // skip whitespace
+        if (iss.peek() == '"') {
+            iss.get(); // consume the opening quote
+            std::getline(iss, token, '"'); // read until closing quote
+            args.push_back(token);
+        } else {
+            iss >> token;
+            args.push_back(token);
+        }
+    }
+    return args;
+  }
+  
   
 };

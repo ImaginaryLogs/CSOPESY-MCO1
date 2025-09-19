@@ -37,16 +37,12 @@ public:
       commander.addInput(input);
       }
     );
+    commander.addDisplayHandler(&display);
 
     std::thread command_thread(std::ref(commander));
     std::thread scanner_thread(std::ref(scanner));
-    
-    
-    
     std::thread display_thread(std::ref(display));
-        
     
-
     std::thread file_writer_thread;
     std::thread file_scanner_thread;
 

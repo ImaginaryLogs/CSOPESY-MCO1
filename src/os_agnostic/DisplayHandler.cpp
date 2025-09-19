@@ -15,6 +15,7 @@ public:
     std::cout << "... Display Handler is waiting." << std::endl;
     this->ctx.phase_barrier.arrive_and_wait();
     std::cout << "... Display Handler is starting." << std::endl;
+    
     while (true) {
       if (isVideoRunning) {
         clearScreen();
@@ -54,6 +55,16 @@ public:
   {
     std::cout << "\033[2J\033[1;1H";
   };
+
+  void ping()
+  {
+    std::cout << "Display Handler received ping...";
+  }
+
+  void displayString(const std::string &input)
+  {
+    std::cout << "Video Thread: " << input << std::endl;
+  }
 
 private:
   std::string currentFrame;
