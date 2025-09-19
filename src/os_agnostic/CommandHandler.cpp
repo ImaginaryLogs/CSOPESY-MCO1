@@ -42,6 +42,7 @@ public:
 
             const std::string& cmd = args[0];
 
+            // required commands
             if (cmd == "help") {
                 printHelp();
             }
@@ -77,7 +78,8 @@ public:
                     }
                 }
             }
-            // optional extension, keep if grader is okay with it
+           
+            // optional commands
             else if (cmd == "set_size") {
                 if (!disp_) { std::cout << "Display not attached.\n"; }
                 else if (args.size() != 3) { std::cout << "Usage: set_size <width> <height>\n"; }
