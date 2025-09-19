@@ -1,3 +1,13 @@
+/*
+    This is the DISPLAY worker thread. It does three things:
+    1) waits on the startup barrier (so all threads begin together)
+    2) asks AnimationHandler for a frame (centered or scrolling)
+    3) prints that frame and sleeps for speedMs
+
+    Note: I use ANSI "in-place redraw" so the box doesn't flicker by clearing the
+    whole console. On Windows 10+, enable VT in main() (ENABLE_VIRTUAL_TERMINAL_PROCESSING).
+*/
+
 #include <string>
 #include <iostream>
 #include <mutex>
@@ -5,89 +15,126 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <vector>
 
 #include "Context.cpp"
+#include "AnimationHandler.cpp"  // project style: include .cpp directly
 
-// Renders a simple scrolling marquee to stdout.
 class DisplayHandler : public Handler {
 public:
-  explicit DisplayHandler(MarqueeContext& c) : Handler(c) {}
+    explicit DisplayHandler(MarqueeContext& c) : Handler(c) {}
 
-  void operator()() {
-    std::cout << "... Display Handler is waiting.\n";
-    ctx.phase_barrier.arrive_and_wait();
-    std::cout << "... Display Handler is starting.\n";
+    // thread entrypoint
+    void operator()() {
+        std::cout << "... Display Handler is waiting.\n";
+        ctx.phase_barrier.arrive_and_wait();
+        std::cout << "... Display Handler is starting.\n";
 
-    while (!terminate.load(std::memory_order_relaxed)) {
-      // Wait until started or told to exit
-      {
-        std::unique_lock<std::mutex> lk(mtx);
-        cv.wait(lk, [&]{
-          return terminate.load(std::memory_order_relaxed) ||
-                 running.load(std::memory_order_relaxed);
-        });
-        if (terminate.load(std::memory_order_relaxed)) break;
-      }
+        // show an initial centered frame (so it's not blank before start)
+        drawFrame(/*scrolling*/false);
 
-      // snapshot state under lock
-      std::string textCopy;
-      int speedMsCopy;
-      {
-        std::lock_guard<std::mutex> lk(mtx);
-        textCopy = text;
-        speedMsCopy = speedMs;
-      }
+        while (!terminate_.load(std::memory_order_relaxed)) {
+            // wait until either "running" is true or termination is requested
+            {
+                std::unique_lock<std::mutex> lk(mtx_);
+                cv_.wait_for(lk, std::chrono::milliseconds(10), [&] {
+                    return terminate_.load(std::memory_order_relaxed) ||
+                        running_.load(std::memory_order_relaxed);
+                    });
+                if (terminate_.load(std::memory_order_relaxed)) break;
+            }
 
-      if (textCopy.empty()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(60));
-        continue;
-      }
+            if (!running_.load(std::memory_order_relaxed)) {
+                // paused: keep the centered frame on screen
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                continue;
+            }
 
-      // rotate one step and print on same line
-      std::string frame = nextFrame(textCopy);
-      std::cout << "\r" << frame << std::flush;
+            drawFrame(/*scrolling*/true);
+            std::this_thread::sleep_for(std::chrono::milliseconds(anim_.speedMs()));
+        }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(speedMsCopy));
+        std::cout << "\n... Display Handler stopped.\n";
     }
 
-    std::cout << "\n... Display Handler stopped.\n";
-  }
+    // ---- Control API (these are what CommandHandler calls) ----
 
-  // small utilities used by CommandHandler
-  void start() { 
-    { std::lock_guard<std::mutex> lk(mtx); running.store(true); } 
-    cv.notify_all(); 
-  }
-  void stop()  { std::lock_guard<std::mutex> lk(mtx); running.store(false); }
-  void setText(const std::string& s) { std::lock_guard<std::mutex> lk(mtx); text = s; offset = 0; }
-  void setSpeed(int ms) { std::lock_guard<std::mutex> lk(mtx); speedMs = std::max(1, ms); }
-  bool isRunning() const { return running.load(); }
+    void start() {
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            running_.store(true, std::memory_order_relaxed);
+        }
+        cv_.notify_all();
+    }
 
-  void ping() { std::cout << "Display Handler received ping...\n"; }
-  void displayString(const std::string &s) { std::cout << "Video Thread: " << s << std::endl; }
+    void stop() {
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            running_.store(false, std::memory_order_relaxed);
+            anim_.resetScroll();
+        }
+        drawFrame(/*scrolling*/false);
+    }
 
-  void requestExit() {
-    { std::lock_guard<std::mutex> lk(mtx); terminate.store(true); running.store(false); }
-    cv.notify_all();
-  }
+    void setText(const std::string& s) {
+        anim_.setText(s);
+        if (!running_.load(std::memory_order_relaxed)) {
+            drawFrame(/*scrolling*/false);
+        }
+    }
+
+    void setSpeed(int ms) {
+        anim_.setSpeed(ms);
+    }
+
+    // optional extension (not required by some PDFs, but handy)
+    void setSize(int w, int h) {
+        anim_.setSize(w, h);
+        drawFrame(running_.load(std::memory_order_relaxed));
+    }
+
+    bool isRunning() const { return running_.load(std::memory_order_relaxed); }
+
+    // simple diagnostics (used by "video ping" in some skeletons)
+    void ping() { std::cout << "Display Handler received ping...\n"; }
+    void displayString(const std::string& s) { std::cout << "Video Thread: " << s << std::endl; }
+
+    void requestExit() {
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            terminate_.store(true, std::memory_order_relaxed);
+            running_.store(false, std::memory_order_relaxed);
+        }
+        cv_.notify_all();
+    }
 
 private:
-  std::string nextFrame(const std::string& src) {
-    static const std::string pad = "   ";
-    const std::string loop = src + pad;
-    if (offset >= loop.size()) offset = 0;
-    std::string out = loop.substr(offset) + loop.substr(0, offset);
-    ++offset;
-    return out;
-  }
+    void drawFrame(bool scrolling) {
+        const std::vector<std::string> lines = anim_.buildFrame(scrolling);
+        const int H = static_cast<int>(lines.size());
 
-  // state
-  std::mutex mtx;
-  std::condition_variable cv;
-  std::atomic<bool> running{false};
-  std::atomic<bool> terminate{false};
+        if (hasDrawnOnce_) {
+            // move cursor UP by H lines so we overwrite in place
+            std::cout << "\x1b[" << H << "A";
+        }
+        else {
+            hasDrawnOnce_ = true;
+        }
 
-  std::string text{"CSU Marquee Emulator"};
-  int speedMs{120};
-  size_t offset{0};
+        for (int i = 0; i < H; ++i) {
+            std::cout << lines[i] << (i + 1 == H ? "" : "\n");
+        }
+        std::cout << std::flush;
+    }
+
+private:
+    // basic flags/coordination
+    std::mutex mtx_;
+    std::condition_variable cv_;
+    std::atomic<bool> running_{ false };
+    std::atomic<bool> terminate_{ false };
+    bool hasDrawnOnce_{ false };
+
+    // the logic core
+    AnimationHandler anim_;
 };
