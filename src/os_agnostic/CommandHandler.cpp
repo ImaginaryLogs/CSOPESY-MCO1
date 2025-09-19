@@ -38,14 +38,25 @@ class CommandHandler : public Handler
        cv.wait(lock, predicateHasCommand);
        while (!commandQueue.empty())
        {
-         std::string command = commandQueue.front();
-         commandQueue.pop();
-         lock.unlock();
+        
 
-         // Process the command
-         std::cout << "Processing command: " << command << std::endl;
+        std::string command = commandQueue.front();
+        commandQueue.pop();
+        std::istringstream iss(command);
+        std::string firstArg;
+        iss >> firstArg;
+        
 
-         lock.lock();
+        // Process the command
+        std::cout << "Processing command: " << command << std::endl;
+
+        if (firstArg.rfind("video", 0) == 0) {
+          if (firstArg.rfind("set", 1) == 0) {
+            
+          }
+        }
+
+        
        }
      }
    };
