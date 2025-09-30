@@ -32,14 +32,10 @@ void DisplayHandler::operator()() {
   ctx.phase_barrier.arrive_and_wait();
 
   enableVirtualTerminal();
-  std::string cur;
-  {
-    // seed local text
-    cur = ctx.getText();
-  }
+
+  std::string cur = ctx.getText();
 
   while (!ctx.exitRequested.load()) {
-    // Only animate if active
     if (ctx.isMarqueeActive()) {
       {
         std::lock_guard<std::mutex> guard(ctx.textMutex);
@@ -49,12 +45,24 @@ void DisplayHandler::operator()() {
           cur = ctx.marqueeText;
         }
       }
+
       {
         std::lock_guard<std::mutex> lock(ctx.coutMutex);
-        std::cout << "\r\x1b[2K"   // clear line
-                  << cur << std::flush;
+        if (ctx.getHasPromptLine()) {
+          // Draw on the line ABOVE the prompt, then restore to the prompt anchor.
+          std::cout << "\x1b[u"      // restore to prompt anchor
+                    << "\x1b[1F"     // move to line above (marquee line)
+                    << "\r\x1b[2K"   // clear marquee line
+                    << cur
+                    << "\x1b[u"      // restore to prompt anchor
+                    << std::flush;
+        } else {
+          // No prompt/prompt-anchor yet: draw on current line
+          std::cout << "\r\x1b[2K" << cur << std::flush;
+        }
       }
     }
+
     std::this_thread::sleep_for(std::chrono::milliseconds(ctx.speedMs.load()));
   }
 

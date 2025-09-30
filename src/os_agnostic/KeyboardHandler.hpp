@@ -13,7 +13,6 @@ public:
   explicit KeyboardHandler(MarqueeContext& c) : Handler(c) {}
 
   void operator()();
-
   // injection point to deliver commands to command processor
   void setSink(std::function<void(std::string)> sink) { deliver = std::move(sink); }
 
