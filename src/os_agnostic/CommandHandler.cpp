@@ -9,6 +9,9 @@
 #include <optional>
 #include <queue>
 #include <string>
+#include <sstream>
+#include <vector>
+#include <algorithm>
 
 #pragma once
 
@@ -17,111 +20,185 @@ public:
   CommandHandler(MarqueeContext &c) : Handler(c) {}
 
   void operator()() {
-    std::cout << "... Command Handler is waiting." << std::endl;
-    this->ctx.phase_barrier.arrive_and_wait();
-    std::cout << "... Command Handler is starting." << std::endl;
-
-    auto predicateHasCommand = [this] { return !commandQueue.empty(); };
-
-    while (true) {
-      std::unique_lock<std::mutex> lock(queueMutex);
-
-      cv.wait(lock, predicateHasCommand);
-      while (!commandQueue.empty()) {
-
-        std::string command = commandQueue.front();
-        commandQueue.pop();
-
-        // Process the command
-        std::cout << "Processing command: " << command << std::endl;
-        auto args = parseArgs(command);
-
-        if (args[0] == "video") {
-
-          if (args.size() < 2) {
-            std::cout << "Missing video subcommand" << std::endl;
-          } else if (args[1] == "ping") {
-            this->display->ping();
-          } else if (args[1] == "display") {
-            if (args.size() < 3) {
-              std::cout << "Missing argument for video display" << std::endl;
-            } else {
-              this->display->displayString(args[2]);
-            }
-          } else if (args[1] == "start") {
-            this->display->startVideo();
-          } else if (args[1] == "pause") {
-            this->display->stopVideo();
-          } else {
-            std::cout << "Not recognized video command" << std::endl;
-          }
-
-        } else if (args[0] == "load") {
-          if (args.size() < 2) {
-            std::cout << "Missing filename for load command" << std::endl;
-          } else {
-            std::cout << "Loading ASCII file: " << args[1] << std::endl;
-            if (this->fileReader) {
-              this->fileReader->requestLoadAscii(args[1], [this](
-                                                              const std::string
-                                                                  &content) {
-                if (content.substr(0, 5) == "Error") {
-                  std::cout << content << std::endl;
-                } else {
-                  std::cout
-                      << "File loaded successfully, setting as current frame"
-                      << std::endl;
-                  this->display->setVideo(content);
-                }
-              });
-            } else {
-              std::cout << "File reader not available" << std::endl;
-            }
-          }
-
-        } else {
-          std::cout << "Not recognized command" << std::endl;
-        }
-      }
+    {
+      std::lock_guard<std::mutex> lock(ctx.coutMutex);
+      std::cout << "... Command Handler is ready." << std::endl;
+      printWelcome();
     }
-  };
 
-  void addInput(const std::string &input) {
-    std::lock_guard<std::mutex> lock(queueMutex);
-    std::cout << "Command Handler Received: " << input << std::endl;
-    commandQueue.push(input);
-    cv.notify_one();
-  };
+    ctx.phase_barrier.arrive_and_wait();
 
-  void addDisplayHandler(DisplayHandler *d) {
-    this->display = d;
-    this->display->ping();
+    running = true;
+    while (running && !ctx.exitRequested.load()) {
+      std::string command;
+      {
+        std::unique_lock<std::mutex> lock(queueMutex);
+        queueCv.wait(lock, [&] { return !commandQueue.empty() || ctx.exitRequested.load(); });
+        if (ctx.exitRequested.load()) break;
+        command = std::move(commandQueue.front());
+        commandQueue.pop();
+      }
+
+      handleCommand(command);
+    }
+
+    ctx.stop_latch.count_down();
   }
 
-  void addFileReaderHandler(FileReaderHandler *fr) { this->fileReader = fr; }
+  void addDisplayHandler(DisplayHandler *d) { display = d; }
+  void addFileReaderHandler(FileReaderHandler *f) { fileReader = f; }
+
+  void addInput(const std::string &in) {
+    {
+      std::lock_guard<std::mutex> lock(queueMutex);
+      commandQueue.push(in);
+    }
+    queueCv.notify_one();
+  }
 
 private:
-  std::queue<std::string> commandQueue;
+  bool running{false};
   std::mutex queueMutex;
-  std::condition_variable cv;
-  DisplayHandler *display;
-  FileReaderHandler *fileReader;
+  std::condition_variable queueCv;
+  std::queue<std::string> commandQueue;
+  DisplayHandler *display{nullptr};
+  FileReaderHandler *fileReader{nullptr};
 
-  std::vector<std::string> parseArgs(const std::string &input) {
-    std::vector<std::string> args;
-    std::istringstream iss(input);
+  void printWelcome() {
+    std::cout << "--------------------------------------------" << std::endl;
+    std::cout << " OS Marquee Emulator - Main Menu" << std::endl;
+    std::cout << "--------------------------------------------" << std::endl;
+    std::cout << "Type 'help' to see available commands." << std::endl;
+  }
+
+  static std::vector<std::string> parseArgs(const std::string &line) {
+    std::istringstream iss(line);
+    std::vector<std::string> tokens;
     std::string token;
 
-    while (iss >> std::ws) { // skip whitespace
+    while (iss >> std::ws) {
       if (iss.peek() == '"') {
-        iss.get();                     // consume the opening quote
-        std::getline(iss, token, '"'); // read until closing quote
-        args.push_back(token);
+        iss.get();
+        std::getline(iss, token, '"');
+        tokens.push_back(token);
       } else {
         iss >> token;
-        args.push_back(token);
+        tokens.push_back(token);
       }
     }
-    return args;
+    return tokens;
+  }
+
+  void handleCommand(const std::string &line) {
+    auto args = parseArgs(line);
+    if (args.empty()) return;
+
+    auto toLower = [](std::string s) {
+      std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
+      return s;
+    };
+
+    const std::string cmd = toLower(args[0]);
+
+    if (cmd == "help") {
+      printHelp();
+      return;
+    }
+    if (cmd == "exit" || cmd == "quit") {
+      ctx.exitRequested.store(true);
+      running = false;
+      return;
+    }
+    if (cmd == "video") {
+      handleVideo(args);
+      return;
+    }
+    if (cmd == "file") {
+      handleFile(args);
+      return;
+    }
+
+    std::lock_guard<std::mutex> lock(ctx.coutMutex);
+    std::cout << "Unknown command: " << args[0] << " (type 'help')" << std::endl;
+  }
+
+  void printHelp() {
+    std::lock_guard<std::mutex> lock(ctx.coutMutex);
+    std::cout << "Commands:" << std::endl;
+    std::cout << "  help                          - show this help" << std::endl;
+    std::cout << "  exit | quit                   - terminate the console" << std::endl;
+    std::cout << "  video ping                    - send a ping to display thread" << std::endl;
+    std::cout << "  video start                   - start marquee animation" << std::endl;
+    std::cout << "  video stop                    - stop marquee animation" << std::endl;
+    std::cout << "  video speed <ms>              - set refresh speed in milliseconds" << std::endl;
+    std::cout << "  video display \"Your text\"    - set marquee text" << std::endl;
+    std::cout << "  file load <path>              - load ASCII file and display (assets/)" << std::endl;
+  }
+
+  void handleVideo(const std::vector<std::string> &args) {
+    if (args.size() < 2) {
+      std::lock_guard<std::mutex> lock(ctx.coutMutex);
+      std::cout << "Missing video subcommand (ping|start|stop|speed|display)" << std::endl;
+      return;
+    }
+    const std::string sub = args[1];
+    if (sub == "ping") {
+      if (display) display->ping();
+    } else if (sub == "start") {
+      if (display) display->start();
+      ctx.runHandler();
+    } else if (sub == "stop") {
+      if (display) display->stop();
+      ctx.pauseHandler();
+    } else if (sub == "speed") {
+      if (args.size() < 3) {
+        std::lock_guard<std::mutex> lock(ctx.coutMutex);
+        std::cout << "Usage: video speed <ms>" << std::endl;
+      } else {
+        try {
+          int ms = std::stoi(args[2]);
+          if (ms < 5) ms = 5;
+          ctx.speedMs.store(ms);
+        } catch (...) {
+          std::lock_guard<std::mutex> lock(ctx.coutMutex);
+          std::cout << "Invalid number: " << args[2] << std::endl;
+        }
+      }
+    } else if (sub == "display") {
+      if (args.size() < 3) {
+        std::lock_guard<std::mutex> lock(ctx.coutMutex);
+        std::cout << "Usage: video display \"Your message\"" << std::endl;
+      } else {
+        std::ostringstream oss;
+        for (size_t i = 2; i < args.size(); ++i) {
+          if (i > 2) oss << ' ';
+          oss << args[i];
+        }
+        // Update marquee text only; do not print another "Video Thread:" line.
+        if (display) display->displayString(oss.str());
+        ctx.setText(oss.str());
+      }
+    } else {
+      std::lock_guard<std::mutex> lock(ctx.coutMutex);
+      std::cout << "Unknown video subcommand: " << sub << std::endl;
+    }
+  }
+
+  void handleFile(const std::vector<std::string> &args) {
+    if (args.size() < 3 || args[1] != "load") {
+      std::lock_guard<std::mutex> lock(ctx.coutMutex);
+      std::cout << "Usage: file load <path>" << std::endl;
+      return;
+    }
+    const std::string path = args[2];
+    if (!fileReader) {
+      std::lock_guard<std::mutex> lock(ctx.coutMutex);
+      std::cout << "File reader not available." << std::endl;
+      return;
+    }
+    fileReader->loadASCII(path, [this](const std::string &content){
+      if (display) display->displayString(content);
+      ctx.setText(content);
+    });
   }
 };
