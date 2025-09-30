@@ -4,8 +4,6 @@
 #include "KeyboardHandler.cpp"
 #include <mutex>
 #include <thread>
-#include <vector>
-#include <iostream>
 
 class MarqueeConsole {
 private:
@@ -13,56 +11,50 @@ private:
   DisplayHandler display;
   KeyboardHandler scanner;
   CommandHandler commandProcessor;
-  FileReaderHandler fileReader;
   std::atomic<bool> isRunning;
   MarqueeContext ctx;
 
 public:
-  MarqueeConsole()
-      : videoName("os_marquee"),
-        display(ctx),
-        scanner(ctx),
-        commandProcessor(ctx),
-        fileReader(ctx),
-        isRunning(false),
-        ctx() {}
+  MarqueeConsole() : display(ctx), scanner(ctx), commandProcessor(ctx) {}
+
+  ~MarqueeConsole() { stop(); }
 
   void run() {
-    isRunning.store(true);
+    std::cout << "Running..." << std::endl;
+    isRunning = true;
+    CommandHandler commander(ctx);
+    DisplayHandler display(ctx);
+    KeyboardHandler scanner(ctx);
+    FileReaderHandler fileReader(ctx);
 
-    // connect keyboard -> command handler
-    scanner.connectHandler([this](const std::string &input) {
-      commandProcessor.addInput(input);
-    });
-    commandProcessor.addDisplayHandler(&display);
-    commandProcessor.addFileReaderHandler(&fileReader);
+    scanner.connectHandler(
+        [&commander](const std::string &input) { commander.addInput(input); });
+    commander.addDisplayHandler(&display);
+    commander.addFileReaderHandler(&fileReader);
 
-    // start threads (4)
-    worker_threads.emplace_back(std::ref(display));
-    worker_threads.emplace_back(std::ref(scanner));
-    worker_threads.emplace_back(std::ref(commandProcessor));
-    worker_threads.emplace_back(std::ref(fileReader));
+    std::thread command_thread(std::ref(commander));
+    std::thread scanner_thread(std::ref(scanner));
+    std::thread display_thread(std::ref(display));
+    std::thread file_reader_thread(std::ref(fileReader));
 
-    // Wait until all threads call barrier and then continue running until exit
-    while (!ctx.exitRequested.load()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
+    std::thread file_writer_thread;
+
+    worker_threads.emplace_back(std::move(display_thread));
+    worker_threads.emplace_back(std::move(scanner_thread));
+    worker_threads.emplace_back(std::move(command_thread));
+    worker_threads.emplace_back(std::move(file_reader_thread));
+
+    ctx.handlers_done.wait();
 
     stop();
-  }
+  };
 
 private:
   std::vector<std::thread> worker_threads;
 
   void stop() {
 
-    {
-      std::lock_guard<std::mutex> lock(ctx.coutMutex);
-      std::cout << "Exiting..." << std::endl;
-    }
-
-    // Wait for threads to count down
-    ctx.stop_latch.wait();
+    std::cout << "Exiting..." << std::endl;
 
     for (auto &t : worker_threads) {
       if (t.joinable()) {
