@@ -1,61 +1,32 @@
-# CSOPESY-MCO1 <!-- omit from toc -->
+# Marquee CLI (C++20/23)
 
-![title](./assets/readme/title.jpg)
+## Build
+### Linux/macOS/WSL
+```bash
+make
+./bin/app
+```
 
-<!-- Refer to https://shields.io/badges for usage -->
+### Windows (VS 2022 Developer Command Prompt)
+```bat
+cl /std:c++20 /EHsc src\main.cpp src\os_agnostic\*.cpp src\os_dependent\*.cpp /Fe:bin\app.exe
+```
 
-![Year, Term, Course](https://img.shields.io/badge/AY2526--T1-CSOPESY-blue) ![C++](https://img.shields.io/badge/C++-00599C?logo=cplusplus)
+## Commands (per PDF spec)
+- `help` — displays the commands and its description
+- `start_marquee` — starts the marquee animation
+- `stop_marquee` — stops the marquee animation
+- `set_text <text>` — sets marquee text
+- `set_speed <ms>` — sets refresh in milliseconds
+- `exit` — terminates the console
 
-A marquee console (for now!).
+Extra (not part of spec, optional):
+- `load_file <path>` — loads ASCII file into marquee text
 
-## Table of Contents <!-- omit from toc -->
-
-- [1. Overview](#1-overview)
-- [2. Getting Started](#2-getting-started)
-  - [2.1. Prerequisites](#21-prerequisites)
-  - [2.2. Installation](#22-installation)
-  - [2.3. Running the Project](#23-running-the-project)
-- [3. Usage](#3-usage)
-- [4. References](#4-references)
-  - [4.1. API](#41-api)
-  - [4.2. Q\&A](#42-qa)
-
-## 1. Overview
-
-> [fill up]
-
-## 2. Getting Started
-
-### 2.1. Prerequisites
-
-> [fill up]
-
-### 2.2. Installation
-
-> [fill up]
-
-### 2.3. Running the Project
-
-> [fill up]
-
-## 3. Usage
-
-> [fill up]
-
-## 4. References
-
-### 4.1. API
-
-> [fill up]
-
-### 4.2. Q&A
-
-> [fill up]
-
-<!-- ### Disclaimer
-
-> [!WARNING]
->
-> ![ChatGPT](https://img.shields.io/badge/ChatGPT-74aa9c?logo=openai&logoColor=white) ![Claude](https://img.shields.io/badge/Claude-D97757?logo=claude&logoColor=white)
->
-> Parts of this project were generated or assisted by AI tools, including OpenAI's [ChatGPT](https://chatgpt.com/) and Anthropic's [Claude](https://www.anthropic.com/claude). While care has been taken to review and verify the generated outputs, it may still contain errors. Please review the code critically and contribute improvements where necessary. -->
+## Notes
+- Uses `std::barrier`, `std::latch`, `std::atomic`, `std::mutex`, and a `std::condition_variable`-based command queue.
+- `NUM_MARQUEE_HANDLERS` is 4 and exactly 4 threads participate in the barrier/latch so there is no deadlock.
+- Console output is synchronized using `coutMutex` to prevent interleaved lines.
+- Keyboard handling is OS-dependent:
+  - Windows: `_kbhit/_getch`
+  - POSIX: `termios` raw + `select()` + `read()`

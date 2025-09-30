@@ -1,0 +1,15 @@
+Merge summary:
+Copied from original:
+  - .gitattributes (file)
+  - assets (dir)
+  - docs (dir)
+  - temp (dir)
+Skipped from original:
+  - .git (reserved by new project)
+  - .gitignore (reserved by new project)
+  - .vscode (reserved by new project)
+  - Makefile (reserved by new project)
+  - README.md (reserved by new project)
+  - bin (reserved by new project)
+  - scripts (reserved by new project)
+  - src (reserved by new project)

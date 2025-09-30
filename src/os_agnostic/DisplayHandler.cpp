@@ -1,72 +1,63 @@
-#include <string>
+/**
+ * Renders the marquee frames to the console.
+ */
+
+#include "DisplayHandler.hpp"
+#include <chrono>
+#include <thread>
 #include <iostream>
-#include <mutex>
-#include <condition_variable>
-#include "Context.cpp"
-#include <functional>
 
-class DisplayHandler : public Handler
-{
-public:
-  DisplayHandler(MarqueeContext& c) : Handler(c) {}
+#if defined(_WIN32)
+#include <windows.h>
+static void enableVirtualTerminal() {
+  HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (hOut == INVALID_HANDLE_VALUE) return;
+  DWORD dwMode = 0;
+  if (!GetConsoleMode(hOut, &dwMode)) return;
+  dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+  SetConsoleMode(hOut, dwMode);
+}
+#else
+static void enableVirtualTerminal() {}
+#endif
 
-  void operator()()
+std::string DisplayHandler::scrollOnce(const std::string& s) {
+  if (s.empty()) return s;
+  std::string out = s.substr(1) + s.substr(0,1);
+  return out;
+}
+
+void DisplayHandler::operator()() {
+  // >>> JOIN INIT PHASE
+  ctx.phase_barrier.arrive_and_wait();
+
+  enableVirtualTerminal();
+  std::string cur;
   {
-    std::cout << "... Display Handler is waiting." << std::endl;
-    this->ctx.phase_barrier.arrive_and_wait();
-    std::cout << "... Display Handler is starting." << std::endl;
-    
-    while (true) {
-      if (isVideoRunning) {
-        clearScreen();
-        std::cout << getCurrentFrame() << std::endl;
+    // seed local text
+    cur = ctx.getText();
+  }
+
+  while (!ctx.exitRequested.load()) {
+    // Only animate if active
+    if (ctx.isMarqueeActive()) {
+      {
+        std::lock_guard<std::mutex> guard(ctx.textMutex);
+        cur = ctx.marqueeText;
+        if (!cur.empty()) {
+          ctx.marqueeText = scrollOnce(cur);
+          cur = ctx.marqueeText;
+        }
       }
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 60)); // Approx 60 FPS
+      {
+        std::lock_guard<std::mutex> lock(ctx.coutMutex);
+        std::cout << "\r\x1b[2K"   // clear line
+                  << cur << std::flush;
+      }
     }
-  };
-
-
-
-
-  bool startVideo()
-  {
-    isVideoRunning = true;
-    return isVideoRunning;
+    std::this_thread::sleep_for(std::chrono::milliseconds(ctx.speedMs.load()));
   }
 
-  bool stopVideo()
-  {
-    isVideoRunning = false;
-    return isVideoRunning;
-  }
-
-  std::string getCurrentFrame()
-  {
-    return currentFrame;
-  };
-
-  void setVideo(const std::string &videoName)
-  {
-    currentFrame = videoName;
-  };
-
-  void clearScreen()
-  {
-    std::cout << "\033[2J\033[1;1H";
-  };
-
-  void ping()
-  {
-    std::cout << "Display Handler received ping...";
-  }
-
-  void displayString(const std::string &input)
-  {
-    std::cout << "Video Thread: " << input << std::endl;
-  }
-
-private:
-  std::string currentFrame;
-  std::atomic<bool> isVideoRunning{false};
-};
+  // >>> THREAD EXIT
+  ctx.stop_latch.count_down();
+}

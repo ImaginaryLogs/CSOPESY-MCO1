@@ -7,9 +7,9 @@
       "request": "launch",
       "args": [],
       "stopAtEntry": false,
-      "externalConsole": false,
-      "cwd": "/home/logyre22/Projects/CSOPESY-MCO1/src",
-      "program": "/home/logyre22/Projects/CSOPESY-MCO1/src/build/Debug/outDebug",
+      "externalConsole": true,
+      "cwd": ".",
+      "program": "build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

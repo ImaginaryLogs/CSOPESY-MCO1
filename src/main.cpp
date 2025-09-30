@@ -1,17 +1,13 @@
+/**
+ * Entry point.
+ */
 
+#include "os_agnostic/MarqueeConsole.hpp"
 #include <iostream>
-#include <string>
-#include <thread>
-#include <chrono>
-#include "os_agnostic/Marquee.cpp"
 
-int main()
-{
+int main() {
   MarqueeConsole console;
-
   console.run();
-  
-  std::cout << "Finished Execution!";
-
+  std::cout << "Finished Execution!\n";
   return 0;
 }

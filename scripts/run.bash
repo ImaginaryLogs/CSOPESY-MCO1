@@ -1,3 +1,3 @@
-cd bin
-
-./app
+#!/usr/bin/env bash
+set -e
+./bin/app

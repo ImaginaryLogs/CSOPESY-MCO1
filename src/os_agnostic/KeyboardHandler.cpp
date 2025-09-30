@@ -1,69 +1,43 @@
-#include "Context.cpp"
-#include <optional>
-#include <future>
-#include "../os_dependent/ScannerLibrary.cpp"
+/**
+ * Keyboard handler using OS-dependent Scanner for per-key responsiveness.
+ */
+
+#include "KeyboardHandler.hpp"
 #include <iostream>
-#include <string>
-#include <chrono>
-#pragma once
 
-class KeyboardHandler : public Handler
-{
-public:
-  KeyboardHandler(MarqueeContext& c) : Handler(c) {}
+static void printPrompt(MarqueeContext& ctx, const std::string& buf) {
+  std::lock_guard<std::mutex> lock(ctx.coutMutex);
+  std::cout << "\r\x1b[2K> " << buf << std::flush;
+}
 
-  void operator()()
-  {
-    std::cout << "... Keyboard Handler is waiting." << std::endl;
-    this->ctx.phase_barrier.arrive_and_wait();
-    std::cout << "... Keyboard Handler is starting." << std::endl;
+void KeyboardHandler::operator()() {
+  // >>> JOIN INIT PHASE
+  ctx.phase_barrier.arrive_and_wait();
 
-    while (true)
-    {
-      auto ch = CrossPlatformChar::readCharFor(slice);
-      
-      if (!ch) continue;
-      
-      
+  Scanner scan;
+  std::string buffer;
+  printPrompt(ctx, buffer);
 
-      switch (*ch)
-      {
-      case '\r':
-      case '\n':
-  
-        if (commandHandlerCallback) {
-          std::cout << "Callback Present" << std::endl;
-          commandHandlerCallback(partialBuffer);
-        }
+  while (!ctx.exitRequested.load()) {
+    int ch = scan.poll();
+    if (ch < 0) continue;
 
-        partialBuffer.clear();
-        break;
-      case 127:
-        if (!partialBuffer.empty())
-        {
-          partialBuffer.pop_back();
-        }
-        break;
-      default:
-        partialBuffer.push_back(*ch);
-        break;
-      }
-
-      std::cout << "\"" << partialBuffer << "\"" << std::endl;
-      std::this_thread::sleep_for(slice);
+    if (ch == '\n') {
+      if (deliver) deliver(buffer);
+      buffer.clear();
+      printPrompt(ctx, buffer);
+    } else if (ch == 3) { // Ctrl+C
+      ctx.exitRequested.store(true);
+      break;
+    } else if (ch == 127 || ch == 8) { // backspace
+      if (!buffer.empty()) buffer.pop_back();
+      printPrompt(ctx, buffer);
+    } else if (ch >= 32 && ch < 127) {
+      buffer.push_back(static_cast<char>(ch));
+      printPrompt(ctx, buffer);
     }
-    
-  };
-  
-  void connectHandler(std::function<void(const std::string&)> callbackF){
-    std::cout << "... Connecting Handler" << std::endl;
-    commandHandlerCallback = std::move(callbackF);    
-  };
+  }
 
-private:
-  std::string partialBuffer;
-  const std::chrono::duration<int64_t, std::milli> slice = std::chrono::milliseconds(50); // input gets 0.05s
-  bool running = false;
-  std::string getUserInput();
-  std::function<void(const std::string&)> commandHandlerCallback;
-};
+  // >>> THREAD EXIT
+  ctx.stop_latch.count_down();
+}
