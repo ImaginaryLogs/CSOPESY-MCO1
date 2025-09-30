@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/select.h> // for select()
+#include <sys/ioctl.h>
 #endif
 
 
@@ -15,52 +16,39 @@
 class CrossPlatformChar
 {
 public:
-  static std::optional<char> readCharFor(std::chrono::milliseconds timeout)
+  // Non-blocking single character fetch.
+  static std::optional<int> get()
   {
-
-#if defined(_WIN32)
-    auto end = std::chrono::steady_clock::now() + timeout;
-    while (std::chrono::steady_clock::now() < end)
+#ifdef _WIN32
+    if (_kbhit())
     {
-      if (_kbhit())
-      {
-        return static_cast<char>(_getch());
-      }
-      Sleep(1);
+      int ch = _getch();
+      return ch;
     }
     return std::nullopt;
+#else
+    // Put terminal in raw, non-canonical, no-echo mode
+    enableRaw();
+    // Poll stdin with select for immediate availability
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(STDIN_FILENO, &set);
+    timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0; // non-blocking
 
-#else // POSIX
-    enableRaw(); // Set terminal to raw mode to not interpret special characters
-    // https://en.wikipedia.org/wiki/Terminal_mode
+    int rv = select(STDIN_FILENO + 1, &set, nullptr, nullptr, &tv);
+    int out = -1;
 
-    // Get File Descriptor Set, Input is from FDS_SET = 0
-    // Essentially, get the actual raw sacanner
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(STDIN_FILENO, &fds);
-
-    // timing out after the specified duration
-    struct timeval tv;
-    tv.tv_sec = timeout.count() / 1000;
-    tv.tv_usec = (timeout.count() % 1000) * 1000;
-
-    std::optional<char> out;
-    // wait for input or timeout
-    int r = select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &tv);
-
-    // https://stackoverflow.com/questions/29307390/how-does-fd-isset-work
-    if (r > 0 && FD_ISSET(STDIN_FILENO, &fds))
-    {
-      char c;
-
-      // Read a single character
-      if (::read(STDIN_FILENO, &c, 1) > 0)
-        out = c;
+    if (rv > 0 && FD_ISSET(STDIN_FILENO, &set)) {
+      unsigned char c;
+      ssize_t n = read(STDIN_FILENO, &c, 1);
+      if (n == 1) out = static_cast<int>(c);
     }
 
     disableRaw();
-    return out;
+    if (out >= 0) return out;
+    return std::nullopt;
     
 #endif
   }
@@ -74,6 +62,8 @@ private:
     tcgetattr(STDIN_FILENO, &orig);
     termios raw = orig;
     raw.c_lflag &= ~(ICANON | ECHO);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
   }
 
