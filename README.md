@@ -35,29 +35,43 @@ A command-line marquee console application that displays scrolling text with cus
 
 The Marquee Console is an OS emulator that provides a command-line interface for displaying scrolling text animations. It consists of several key components working together to create a responsive marquee display system.
 
+> expound on technical stuff needed for the technical report
+
 ### 1.1. Console UI
 
 The main console interface that coordinates all components and provides the user interaction layer. It manages the overall application lifecycle and thread coordination.
+
+> expound on technical stuff needed for the technical report
 
 ### 1.2. Command interpreter
 
 Handles command parsing and execution. Processes user commands from a thread-safe queue and coordinates with other components to execute marquee operations.
 
+> expound on technical stuff needed for the technical report
+
 ### 1.3. Display handler
 
 Manages the visual output and marquee animation rendering. Handles console display updates and text scrolling with customizable refresh rates.
+
+> expound on technical stuff needed for the technical report
 
 ### 1.4. Keyboard handler
 
 Provides cross-platform keyboard input handling. Uses OS-specific implementations for Windows (`_kbhit/_getch`) and POSIX systems (`termios` raw + `select()` + `read()`).
 
+> expound on technical stuff needed for the technical report
+
 ### 1.5. Marquee logic
 
 Implements the core scrolling algorithm and animation timing. Manages text rotation and display updates with thread-safe synchronization.
 
+> expound on technical stuff needed for the technical report
+
 ### 1.6. File handler
 
 Optional component for loading text content from ASCII files. Provides the `load_file` command functionality for external text input.
+
+> expound on technical stuff needed for the technical report
 
 ## 2. Prerequisites
 
