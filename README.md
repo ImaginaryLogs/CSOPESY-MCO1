@@ -120,11 +120,15 @@ void KeyboardHandler::operator()() {
 
 The main loop polls without blocking, handles Enter for submission, Ctrl+C for shutdown, Backspace for editing, and printable ASCII for input.
 
+Notably, the platform-specific input is abstracted behind `Scanner`, which maps to `src/os_dependent/Scanner_win32.cpp` on Windows and `src/os_dependent/Scanner_posix.cpp` on POSIX so the handler logic remains portable while preserving non-blocking.
+
 ### 1.5. Marquee animation logic
 
 The marquee renderer animates a smooth single-line scroll by rotating the text one character at a time and redrawing on a single console line just above the prompt.
 
 It prints according to a configured refresh interval and active state from shared context and avoids tearing by updating text under a mutex and guarding redraws with a console mutex.
+
+Before entering the loop, all handlers synchronize via a barrier and the renderer enables Windows virtual terminal processing so ANSI cursor commands work consistently across platforms (on POSIX, this helper is a no-op).
 
 ```17:50:src/os_agnostic/DisplayHandler.hpp
 class DisplayHandler : public Handler {
@@ -138,7 +142,7 @@ private:
 };
 ```
 
-These small surface methods (`start/stop`) flip context flags while the render loop coordinates with other threads via the barrier and latch.
+These small surface methods (`start/stop`) flip context flags while the render loop coordinates lifecycle with the barrier at start and a latch countdown on exit.
 
 ```38:42:src/os_agnostic/DisplayHandler.cpp
 std::string DisplayHandler::scrollOnce(const std::string& s) {
@@ -163,6 +167,10 @@ std::this_thread::sleep_for(std::chrono::milliseconds(ctx.speedMs.load()));
 ```
 
 When a prompt is present, we temporarily restore the cursor and draw a frame above it, then restore the prompt’s position; otherwise we draw inline.
+
+Cursor save/restore is what lets the user keep typing without the marquee stealing focus, and the sleep uses `speedMs` directly so `set_speed` takes effect on the next tick.
+
+We decided to read `speedMs` atomically on each iteration to make speed changes immediately visible without restarting the loop. We also decided to use distinct `textMutex` and `coutMutex` mutexes to prevent contention between string rotation and console I/O.
 
 ### 1.6. File handler
 
