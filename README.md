@@ -25,7 +25,7 @@ The main function can be found in `src/main.cpp`. Jump to [2. Building (CMake pr
   - [1.3. Display handler](#13-display-handler)
   - [1.4. Keyboard handler](#14-keyboard-handler)
   - [1.5. Marquee animation logic](#15-marquee-animation-logic)
-- [2. Building (CMake presets)](#2-building-cmake-presets)
+- [2. Building](#2-building)
 - [3. Running](#3-running)
   - [3.1. Windows (VS 2022 Developer Command Prompt)](#31-windows-vs-2022-developer-command-prompt)
   - [3.2. Linux/macOS/WSL](#32-linuxmacoswsl)
@@ -182,7 +182,9 @@ Only console messages are serialized to avoid interleaving with other output.
 - Make utility
 - pthread library -->
 
-## 2. Building (CMake presets)
+## 2. Building
+
+The program utilizes CMake and has to be built in the x64 Native Tools Command Prompt.
 
 ```sh
 cmake --preset default
