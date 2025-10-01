@@ -1,6 +1,6 @@
 # Marquee Console <!-- omit from toc -->
 
-![title](./assets/readme/title.jpg)
+<!-- ![title](./assets/readme/title.jpg) -->
 
 <!-- Refer to https://shields.io/badges for usage -->
 
