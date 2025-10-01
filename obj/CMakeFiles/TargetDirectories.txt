@@ -1,0 +1,3 @@
+C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/obj/CMakeFiles/app.dir
+C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/obj/CMakeFiles/edit_cache.dir
+C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/obj/CMakeFiles/rebuild_cache.dir

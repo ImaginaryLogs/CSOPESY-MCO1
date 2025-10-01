@@ -68,8 +68,8 @@ static void writeHelpUnlocked(std::ostream& os) {
      << "  stop_marquee                      - stops the animation of the marquee\n"
      << "  set_text <text>                   - sets the text of the marquee\n"
      << "  set_speed <ms>                    - sets the refresh rate in milliseconds\n"
-     << "  exit                              - exits the program\n";
-     << "  (aliases) mqa=start_marquee, mqo=stop_marquee, mqt=set_text, mqs=set_speed\n"
+     << "  exit                              - exits the program\n"
+     << "  (aliases) mqa=start_marquee, mqo=stop_marquee, mqt=set_text, mqs=set_speed\n";
 
 }
 

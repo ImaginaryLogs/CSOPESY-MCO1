@@ -2,6 +2,27 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Run app (Windows)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/app.exe",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build",
+      "console": "externalTerminal",
+      "windows": {}
+    },
+    {
+      "name": "Run app (Linux)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/app",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build",
+      "MIMode": "gdb",
+      "externalConsole": true,
+      "linux": {}
+    },
+    {
       "name": "C/C++ Runner: Debug Session",
       "type": "cppdbg",
       "request": "launch",

@@ -17,7 +17,7 @@ MarqueeConsole::MarqueeConsole():
     ctx(),
     display(ctx),
     keyboard(ctx),
-    command(ctx),
+    command(ctx)
 {
     // Hands off the display to the command processor.
     command.addDisplayHandler(&display);
