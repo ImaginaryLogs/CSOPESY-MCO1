@@ -32,8 +32,8 @@ static void enableVirtualTerminal() {}
 
 /**
  * @brief wraps the first character to the end and scrolls the marquee text by one character.
- * @parameter s The marquee string that is currently in use.
- * After scrolling, @return the updated string.
+ * @param s The marquee string that is currently in use.
+ * @return After scrolling, returns the updated string.
  */
 std::string DisplayHandler::scrollOnce(const std::string& s) {
     if (s.empty()) return s;

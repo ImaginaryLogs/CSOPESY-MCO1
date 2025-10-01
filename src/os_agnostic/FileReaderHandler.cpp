@@ -12,7 +12,7 @@
 /**
  * @brief sends the contents of an ASCII text file to the specified callback after loading it.
  *
- * Tries to open the file at the specified path. reads the entire content if successful.
+ * Attempts to open a file of a specified path. Reads the entire content if successful.
  * and uses the outcome to invoke the callback. Upon failure (read error or file not found),
  * passes an empty string to the callback and outputs an error to the console.
  *

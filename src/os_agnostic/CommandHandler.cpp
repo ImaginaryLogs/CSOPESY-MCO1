@@ -70,6 +70,8 @@ static void writeHelpUnlocked(std::ostream& os) {
      << "  set_speed <ms>                    - sets the refresh rate in milliseconds\n"
      << "  load_file <path>                  - (extra) loads ASCII file into marquee text\n"
      << "  exit                              - exits the program\n";
+     << "  (aliases) mqa=start_marquee, mqo=stop_marquee, mqt=set_text, mqs=set_speed\n"
+
 }
 
 /**
@@ -310,7 +312,7 @@ void CommandHandler::handleCommand(const std::string& line) {
  *  - Pops one command at a time and pass it to handleCommand().
  */
 void CommandHandler::operator()() {
-  
+
   // >>> JOIN INIT PHASE
   ctx.phase_barrier.arrive_and_wait();
 

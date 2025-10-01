@@ -9,9 +9,9 @@
 #include <string>
 
 /**
- * @brief is in charge of the marquee's live console rendering.
+ * @brief in charge of the marquee's live console rendering.
  * This class uses the shared context to update the console.
- * It reacts to control flags such as active and pause and produces new
+ * It reacts to control flags such as active and pause and creates new
  * text frames that move around the screen.
  */
 class DisplayHandler : public Handler {
