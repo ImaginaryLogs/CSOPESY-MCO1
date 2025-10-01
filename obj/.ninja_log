@@ -1,11 +1,10 @@
 # ninja log v5
 35	1515	7810251610078899	CMakeFiles/app.dir/src/os_agnostic/KeyboardHandler.cpp.obj	a294c2c084a58036
 43	451	7810251599437614	CMakeFiles/app.dir/src/os_dependent/Scanner_win32.cpp.obj	bd88e6541fc7275
-1	1292	7810277977244959	CMakeFiles/app.dir/src/main.cpp.obj	bb83d061804f8ae4
-27	3088	7810251625855037	CMakeFiles/app.dir/src/os_agnostic/DisplayHandler.cpp.obj	191629faf7bf96cd
-1	1544	7810253591626716	CMakeFiles/app.dir/src/os_agnostic/CommandHandler.cpp.obj	d4c8b769b2db413e
-11	2826	7810273252200349	CMakeFiles/app.dir/src/os_agnostic/MarqueeConsole.cpp.obj	c8d5968be63bfe8d
-1294	1553	7810277979485349	C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/bin/app.exe	1b1d61f6cd5ddfca
 1	1913	7810287656448985	CMakeFiles/app.dir/src/main.cpp.obj	bb83d061804f8ae4
-12	1942	7810287656795329	CMakeFiles/app.dir/src/os_agnostic/CommandHandler.cpp.obj	d4c8b769b2db413e
-1942	2407	7810287660953572	C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/bin/app.exe	1b1d61f6cd5ddfca
+27	3088	7810251625855037	CMakeFiles/app.dir/src/os_agnostic/DisplayHandler.cpp.obj	191629faf7bf96cd
+1	1712	7810292600985643	CMakeFiles/app.dir/src/os_agnostic/CommandHandler.cpp.obj	d4c8b769b2db413e
+11	2826	7810273252200349	CMakeFiles/app.dir/src/os_agnostic/MarqueeConsole.cpp.obj	c8d5968be63bfe8d
+1713	2021	7810292603664873	C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/bin/app.exe	1b1d61f6cd5ddfca
+1	1715	7810295721294202	CMakeFiles/app.dir/src/os_agnostic/CommandHandler.cpp.obj	d4c8b769b2db413e
+1716	2018	7810295723884319	C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/bin/app.exe	1b1d61f6cd5ddfca
