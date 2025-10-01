@@ -3,7 +3,7 @@
  * @brief Simple command runner for the marquee console.
  *
  * This class reads command strings from a queue (usually pushed by the keyboard
- * thread) and runs them. It talks to the display handler (for starting/stopping
+ * thread) and runs them. It communicates with the display handler (for starting/stopping
  * the marquee) and the file reader (for loading text).
  *
  * Commands from the spec:

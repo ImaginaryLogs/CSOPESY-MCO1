@@ -1,8 +1,6 @@
 /**
  * @file Context.hpp
- * @brief Disseminates the state of the Marquee console to every handler thread.
- *
- * This header adheres to the original Context.cpp's comment style.
+ * @brief Shares the state of the Marquee console to every handler thread.
  */
 
 #pragma once
@@ -39,7 +37,7 @@ public:
     /** @brief Before beginning, all participating threads are synched with this barrier. */
     std::barrier<PhaseCompletion> phase_barrier{NUM_MARQUEE_HANDLERS};
 
-    /** @brief Latch (threads call count_down()) to orchestrate a graceful shutdown. */
+    /** @brief Latch (threads call count_down()) to orchestrate smooth shutdown. */
     std::latch stop_latch{NUM_MARQUEE_HANDLERS};
 
     // >>> RUN/PAUSE STATE (names preserved as requested)

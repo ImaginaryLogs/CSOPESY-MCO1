@@ -4,24 +4,24 @@
  * @brief The command runner's implementation.
 
  *
- * Objective: maintain a consistent console layout to prevent lines from becoming confused with the
- * marquee.  We perform "atomic" prints by constantly moving and locking ctx.coutMutex.
- * in relation to a "prompt anchor" that has been saved.
+ * Maintains a consistent console layout to prevent lines from interleaving with the
+ * marquee. By locking the cout mutex, the program ensures to print one line at a time.
+ * Before drawing, it always jumps back to a saved spot of the prompt.
  *
- * The arrangement surrounding the prompt appears as follows:
+ * The format of the printed output is as follows:
  *
- * > the earlier command
- * Prior comments
+ * > prev_command
+ * Previous feedback messages
  *
- * > present command
+ * > current_command
  * Current feedback, which may consist of several lines
  * marquee (one line; this is updated above the prompt by the display thread)
- * > new prompt
+ * > new_prompt (to be added)
  *
  * We consistently:
  * 1) return to the prompt anchor,
  * 2) remove the previous marquee line, which is located directly above the prompt.
- * echo the command that was entered,
+ * 3) echo the command that was entered,
  * 4) Print the comments,
  * 5) Print a new marquee line (snapshot or blank).
  * 6) Save a new anchor and print a fresh prompt.
@@ -58,7 +58,7 @@ void CommandHandler::enqueue(std::string cmd) {
 }
 
 /**
- * The help menu is printed by the @brief Helper. The caller must already have coutMutex.
+ * @brief The help menu consists of the available commands and their descriptions.
  * @param os Output stream (often std::cout).
  */
 static void writeHelpUnlocked(std::ostream& os) {
@@ -70,10 +70,12 @@ static void writeHelpUnlocked(std::ostream& os) {
      << "  set_speed <ms>                    - sets the refresh rate in milliseconds\n"
      << "  load_file <path>                  - (extra) loads ASCII file into marquee text\n"
      << "  exit                              - exits the program\n";
+     << "  (aliases) mqa=start_marquee, mqo=stop_marquee, mqt=set_text, mqs=set_speed\n"
+
 }
 
 /**
- * @brief Paint one console output "transaction" so that lines show up in the correct order.
+ * @brief Paint one console update so that lines are displayed in the correct order.
  *
  * Procedures (all with ctx.coutMutex held):
  * - remove the previous marquee line, which is one row above the prompt.
@@ -84,14 +86,14 @@ static void writeHelpUnlocked(std::ostream& os) {
  *
  * @param ctx Shared context (shared state and sync).
  * @param enteredLine The typed command (which we echo).
- * @param feedbackWriter Function that adds comments to the stream. It might be empty.
+ * @param feedbackWriter Function that adds comments to the stream (may be empty).
  */
 static void paintEchoFeedbackMarqueePrompt(
     MarqueeContext& ctx,
     const std::string& enteredLine,
     const std::function<void(std::ostream&)>& feedbackWriter)
 {
-  // Grab a snapshot of the text on the marquee (short lock to avoid blocking long prints).
+  // Grab a snapshot of the current text on the marquee (short lock to avoid blocking long prints).
   std::string marqueeNow;
   {
     std::lock_guard<std::mutex> g(ctx.textMutex);
@@ -99,11 +101,13 @@ static void paintEchoFeedbackMarqueePrompt(
   }
   const bool showMarquee = ctx.isMarqueeActive();
 
-  // Ensure that nothing interferes with the display output, there is a large critical section.
+  // Ensure that nothing interferes with the display output.
   std::lock_guard<std::mutex> lock(ctx.coutMutex);
 
   // Always follows the prompt anchor that has been saved.
   std::cout << "\x1b[u";                       // back to prompt anchor
+
+  // >>> DISPLAY SEQUENCE
 
   // (1) Removes the previous marquee line, which is located directly above the prompt.
   std::cout << "\x1b[1F"                       // go up 1 row
@@ -133,8 +137,8 @@ static void paintEchoFeedbackMarqueePrompt(
 }
 
 /**
- * @brief Use the paint sequence to print a single feedback line with this tiny helper.
- * Shared context with @param ctx.
+ * @brief Use the paint sequence to print a single feedback line.
+ * @param ctx The shared context.
  * @param enteredLine The command that we are responding to.
  * @param msg One-line message; we include the newline at the end.
  */ 
@@ -154,13 +158,14 @@ void CommandHandler::printHelp() {
 }
 
 /**
- * @brief Call the appropriate action after parsing one line.
+ * @brief Call the appropriate operation after parsing one line.
  *
  * Flow:
- * - divide the command word from the remaining words,
- * - lowercase the command,
- * - match it and execute the action,
- * To ensure that the output does not conflict with the marquee, draw it using the Atomic Paint Helper.
+ * - divide the command keyword from the argument/s next to it (if any),
+ * - lowercase the command (to allow case insensitivity),
+ * - find the appropriate action associated with the command.
+ * To ensure that outputs (e.g., feedback) do not interfere with the
+ * marquee's animation/placement, it draw the outputs using the atomic paint helper func.
  *
  * @param line The user's entire input line.
 */
@@ -171,7 +176,7 @@ void CommandHandler::handleCommand(const std::string& line) {
   std::string rest = (first_space == std::string::npos) ? std::string{} : line.substr(first_space + 1);
   toLowerInPlace(cmd);
 
-  // HELP
+  // >>> HELP
   if (cmd == "help") {
     paintEchoFeedbackMarqueePrompt(ctx, line, [&](std::ostream& os){
       writeHelpUnlocked(os);
@@ -179,7 +184,7 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // EXIT (after this, we don’t print a new prompt)
+  // >>> EXIT (after this, we don’t print a new prompt)
   if (cmd == "exit") {
     {
       std::lock_guard<std::mutex> lock(ctx.coutMutex);
@@ -193,7 +198,7 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // START
+  // >>> START
   if (cmd == "start_marquee") {
     if (display) display->start();
     ctx.runHandler();
@@ -201,7 +206,7 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // STOP
+  // >>> STOP
   if (cmd == "stop_marquee") {
     if (display) display->stop();
     ctx.pauseHandler();
@@ -209,7 +214,7 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // SET SPEED
+  // >>> SET SPEED
   if (cmd == "set_speed") {
     auto trim = [](std::string s){
       auto l = s.find_first_not_of(" \t");
@@ -233,7 +238,7 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // SET TEXT
+  // >>> SET TEXT
   if (cmd == "set_text") {
     auto trimQuotes = [](std::string s){
       auto l = s.find_first_not_of(" \t");
@@ -251,7 +256,7 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // LOAD FILE (extra)
+  // >>> LOAD FILE (extra)
   if (cmd == "load_file") {
     auto trimQuotes = [](std::string s){
       auto l = s.find_first_not_of(" \t");
@@ -278,40 +283,20 @@ void CommandHandler::handleCommand(const std::string& line) {
     return;
   }
 
-  // Legacy aliases (kept for compatibility)
-  if (cmd == "marquee") {
-    std::istringstream iss(rest);
-    std::string sub; iss >> sub; toLowerInPlace(sub);
-    if (sub == "start") return handleCommand("start_marquee");
-    if (sub == "stop")  return handleCommand("stop_marquee");
-    if (sub == "speed") {
-      std::string ms; iss >> ms;
-      return handleCommand("set_speed " + ms);
-    }
-    if (sub == "text") {
-      std::string text;
-      std::getline(iss, text);
-      return handleCommand("set_text " + text);
-    }
-    paintMessage(ctx, line, "Unknown marquee subcommand. Type 'help'.");
-    return;
-  }
+  // >>> ALIASES
 
-  if (cmd == "video") {
-    // Old alias -> forward to the marquee form
-    paintMessage(ctx, line, "(note) 'video ...' is deprecated; use start_marquee/stop_marquee/set_speed/set_text");
-    std::string mapped = "marquee " + rest;
-    handleCommand(mapped);
-    return;
+  // e = enable, d = disable, t = text, s = speed
+  if (cmd == "mqa") {                            // start_marquee
+    return handleCommand("start_marquee");
   }
-
-  if (cmd == "file") {
-    std::istringstream iss(rest);
-    std::string sub; iss >> sub; toLowerInPlace(sub);
-    if (sub == "load") {
-      std::string path; std::getline(iss, path);
-      return handleCommand("load_file " + path);
-    }
+  if (cmd == "mqo") {                            // stop_marquee
+    return handleCommand("stop_marquee");
+  }
+  if (cmd == "mqt") {                            // set_text <text>
+    return handleCommand("set_text " + rest);
+  }
+  if (cmd == "mqs") {                            // set_speed <ms>
+    return handleCommand("set_speed " + rest);
   }
 
   // Unknown command
@@ -323,10 +308,11 @@ void CommandHandler::handleCommand(const std::string& line) {
  *
  * Waiting logic:
  *  - If the queue is empty, we wait on queueCv.
- *  - We wake up when someone enqueues a command or when exit is requested.
- *  - We pop one command at a time and pass it to handleCommand().
+ *  - Wakes up when someone enqueues a command or when exit is requested.
+ *  - Pops one command at a time and pass it to handleCommand().
  */
 void CommandHandler::operator()() {
+
   // >>> JOIN INIT PHASE
   ctx.phase_barrier.arrive_and_wait();
 
