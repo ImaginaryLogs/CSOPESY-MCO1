@@ -4,24 +4,24 @@
  * @brief The command runner's implementation.
 
  *
- * Objective: maintain a consistent console layout to prevent lines from becoming confused with the
- * marquee.  We perform "atomic" prints by constantly moving and locking ctx.coutMutex.
- * in relation to a "prompt anchor" that has been saved.
+ * Maintains a consistent console layout to prevent lines from interleaving with the
+ * marquee. By locking the cout mutex, the program ensures to print one line at a time.
+ * Before drawing, it always jumps back to a saved spot of the prompt.
  *
- * The arrangement surrounding the prompt appears as follows:
+ * The format of the printed output is as follows:
  *
- * > the earlier command
- * Prior comments
+ * > prev_command
+ * Previous feedback messages
  *
- * > present command
+ * > current_command
  * Current feedback, which may consist of several lines
  * marquee (one line; this is updated above the prompt by the display thread)
- * > new prompt
+ * > new_prompt (to be added)
  *
  * We consistently:
  * 1) return to the prompt anchor,
  * 2) remove the previous marquee line, which is located directly above the prompt.
- * echo the command that was entered,
+ * 3) echo the command that was entered,
  * 4) Print the comments,
  * 5) Print a new marquee line (snapshot or blank).
  * 6) Save a new anchor and print a fresh prompt.
@@ -58,7 +58,7 @@ void CommandHandler::enqueue(std::string cmd) {
 }
 
 /**
- * The help menu is printed by the @brief Helper. The caller must already have coutMutex.
+ * @brief The help menu is printed by the Helper. The caller must already have coutMutex.
  * @param os Output stream (often std::cout).
  */
 static void writeHelpUnlocked(std::ostream& os) {
