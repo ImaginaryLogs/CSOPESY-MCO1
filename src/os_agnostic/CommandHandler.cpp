@@ -40,6 +40,7 @@ static void writeHelpUnlocked(std::ostream& os) {
      << "  stop_marquee                      - stops the marquee animation\n"
      << "  set_text <text>                   - sets the marquee text\n"
      << "  set_speed <ms>                    - sets the refresh in milliseconds\n"
+     << "  set_size <width> <height>         - sets the frame size (0 keeps current)\n"
      << "  load_file <path>                  - (extra) loads ASCII file into marquee text\n"
      << "  exit                              - terminates the console\n";
 }
@@ -64,9 +65,16 @@ static void paintEchoFeedbackMarqueePrompt(
   // Always position relative to the *current* prompt anchor
   std::cout << "\x1b[u";                       // restore to prompt anchor
 
-  // 1) CLEAR the previous marquee line (one line above the prompt)
-  std::cout << "\x1b[1F"                       // move to marquee line
-            << "\r\x1b[2K";                    // clear entire line
+  // 1) CLEAR the previous marquee block: clear H lines above the (old) prompt anchor
+  {
+    int H = (std::max)(1, ctx.getFrameHeight());
+      for (int k = 1; k <= H; ++k) {
+        std::cout << "\x1b[u"
+                  << "\x1b[" << k << "F"
+                  << "\r\x1b[2K";
+      }
+  }
+
 
   // 2) Echo the entered command on the prompt line, then newline into history
   std::cout << "\x1b[u"                        // back to prompt anchor
@@ -76,12 +84,15 @@ static void paintEchoFeedbackMarqueePrompt(
   // 3) Feedback block (can be multi-line; writer prints trailing newlines)
   if (feedbackWriter) feedbackWriter(std::cout);
 
-  // 4) NEW marquee line: only print text if marquee is active; otherwise keep it blank
+  // 4) Reserve H lines ONLY if marquee is running
   if (showMarquee) {
-    std::cout << "\x1b[2K" << marqueeNow << "\n";
-  } else {
-    std::cout << "\x1b[2K" << "\n";            // blank marquee line (reserve the slot)
+    int H = (std::max)(1, ctx.getFrameHeight());
+    for (int i = 0; i < H; ++i) {
+      std::cout << "\x1b[2K" << "\n";   // blank placeholders for Display to paint over
+    }
   }
+  // else: print nothing; zero extra spacing when stopped
+
 
   // 5) NEW prompt line and save a fresh anchor for Display/Keyboard
   std::cout << "\x1b[2K> "                     // prompt
@@ -174,6 +185,28 @@ void CommandHandler::handleCommand(const std::string& line) {
     }
     return;
   }
+
+  // SET SIZE: set_size <width> <height>  (0 keeps current)
+  if (cmd == "set_size") {
+    int w = 0, h = 0;
+    {
+      std::istringstream iss(rest);
+      if (!(iss >> w >> h)) {
+        paintMessage(ctx, line, "Usage: set_size <width> <height>  (use 0 to keep current)");
+        return;
+      }
+    }
+    // Normalize: 0 means keep current, otherwise clamp to >=1
+    int curW = ctx.getFrameWidth();
+    int curH = ctx.getFrameHeight();
+    int newW = (w == 0 ? curW : (std::max)(1, w));
+    int newH = (h == 0 ? curH : (std::max)(1, h));
+    ctx.setFrameSize(newW, newH);
+
+    paintMessage(ctx, line, "Size set to " + std::to_string(newW) + " x " + std::to_string(newH) + ".");
+    return;
+  }
+
 
   // SET TEXT
   if (cmd == "set_text") {

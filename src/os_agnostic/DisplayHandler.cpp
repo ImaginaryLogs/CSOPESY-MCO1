@@ -6,8 +6,10 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <algorithm>   // <-- needed for (std::max)
 
 #if defined(_WIN32)
+#define NOMINMAX       // <-- prevent Windows macros min/max
 #include <windows.h>
 static void enableVirtualTerminal() {
   HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -20,6 +22,7 @@ static void enableVirtualTerminal() {
 #else
 static void enableVirtualTerminal() {}
 #endif
+
 
 std::string DisplayHandler::scrollOnce(const std::string& s) {
   if (s.empty()) return s;
@@ -49,18 +52,33 @@ void DisplayHandler::operator()() {
       {
         std::lock_guard<std::mutex> lock(ctx.coutMutex);
         if (ctx.getHasPromptLine()) {
-          // Draw on the line ABOVE the prompt, then restore to the prompt anchor.
-          std::cout << "\x1b[u"      // restore to prompt anchor
-                    << "\x1b[1F"     // move to line above (marquee line)
-                    << "\r\x1b[2K"   // clear marquee line
-                    << cur
-                    << "\x1b[u"      // restore to prompt anchor
-                    << std::flush;
+          // Viewport
+          int H = (std::max)(1, ctx.getFrameHeight());
+          int W = (std::max)(1, ctx.getFrameWidth());
+
+          // Build exactly W characters for this frame
+          std::string view = cur;
+          if ((int)view.size() < W) view.append(W - (int)view.size(), ' ');
+          else if ((int)view.size() > W) view.erase(W);
+
+          // Choose center line: odd -> middle; even -> higher middle
+          int centerTop = (H % 2 == 1) ? (H / 2) : (H / 2 - 1);  // 0-based from top
+          int drawK = H - centerTop;                             // 1-based from bottom (kF uses bottom=1F)
+
+          // Paint H lines above the prompt (no newlines; we repaint in-place)
+          for (int k = 1; k <= H; ++k) {
+            std::cout << "\x1b[u"                // back to prompt anchor
+                      << "\x1b[" << k << "F"     // move up k lines (1F = bottom-most line)
+                      << "\r\x1b[2K";            // clear that line
+            if (k == drawK) std::cout << view;   // draw marquee on the centered line only
+          }
+          std::cout << "\x1b[u" << std::flush;   // restore to prompt anchor
         } else {
-          // No prompt/prompt-anchor yet: draw on current line
+          // No prompt/prompt-anchor yet: draw on current line (fallback)
           std::cout << "\r\x1b[2K" << cur << std::flush;
         }
       }
+
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(ctx.speedMs.load()));

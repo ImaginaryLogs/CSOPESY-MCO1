@@ -53,6 +53,16 @@ struct MarqueeContext {
     std::mutex   textMutex;
     std::string  marqueeText{"Welcome to Marquee Console!"};
     std::atomic<int> speedMs{200};
+    std::atomic<int> frameWidth{40};   // visible chars; default 40
+    std::atomic<int> frameHeight{1};   // visible lines; default 1
+
+    void setFrameSize(int w, int h) {
+      if (w > 0) frameWidth.store(w);
+      if (h > 0) frameHeight.store(h);
+    }
+    int getFrameWidth()  const { return frameWidth.load(); }
+    int getFrameHeight() const { return frameHeight.load(); }
+
 
     void setText(const std::string &s) { std::lock_guard<std::mutex> lock(textMutex); marqueeText = s; }
     std::string getText() { std::lock_guard<std::mutex> lock(textMutex); return marqueeText; }
