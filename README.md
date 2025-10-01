@@ -56,7 +56,7 @@ Manages the visual output and marquee animation rendering. Handles console displ
 
 ### 1.4. Keyboard handler
 
-The keyboard handler runs in its own thread and collects keystrokes into a buffer with basic editing (including Backspace).
+The keyboard handler runs in its own thread and collects keystrokes into a buffer with basic editing.
 
 When the user presses Enter, it submits the buffered line immediately to the command interpreter through an injected sink callback.
 
@@ -77,7 +77,7 @@ private:
 };
 ```
 
-As a design consideration, we inject a sink rather than hard-wiring a dependency, which keeps input collection decoupled from command processing, which also simplifies testing.
+As a design consideration, we inject a sink rather than hard-wiring a dependency, which keeps input collection separated from command processing, thereby simplifying testing.
 
 ```17:27:src/os_agnostic/KeyboardHandler.cpp
 static void ensurePromptAnchor(MarqueeContext& ctx) {
@@ -89,7 +89,7 @@ static void ensurePromptAnchor(MarqueeContext& ctx) {
 }
 ```
 
-This anchor reserves space for status and marquee above the prompt and lets us redraw without flicker.
+This anchor reserves space for status and marquee above the prompt and lets us redraw.
 
 ```39:49:src/os_agnostic/KeyboardHandler.cpp
 static void redrawPrompt(MarqueeContext& ctx, const std::string& buf) {
