@@ -19,9 +19,7 @@ A command-line marquee console application that displays scrolling text with cus
 - [2. Prerequisites](#2-prerequisites)
   - [2.1. Windows (VS 2022 Developer Command Prompt)](#21-windows-vs-2022-developer-command-prompt)
   - [2.2. Linux/macOS/WSL](#22-linuxmacoswsl)
-- [3. Building](#3-building)
-  - [3.1. Windows (VS 2022 Developer Command Prompt)](#31-windows-vs-2022-developer-command-prompt)
-  - [3.2. Linux/macOS/WSL](#32-linuxmacoswsl)
+- [3. Building (CMake presets)](#3-building-cmake-presets)
 - [4. Running](#4-running)
   - [4.1. Windows (VS 2022 Developer Command Prompt)](#41-windows-vs-2022-developer-command-prompt)
   - [4.2. Linux/macOS/WSL](#42-linuxmacoswsl)
@@ -187,18 +185,11 @@ Only console messages are serialized to avoid interleaving with other output.
 - Make utility
 - pthread library
 
-## 3. Building
+## 3. Building (CMake presets)
 
-### 3.1. Windows (VS 2022 Developer Command Prompt)
-
-```bat
-cl /std:c++20 /EHsc src\main.cpp src\os_agnostic\*.cpp src\os_dependent\*.cpp /Fe:bin\app.exe
-```
-
-### 3.2. Linux/macOS/WSL
-
-```bash
-make
+```sh
+cmake --preset default
+cmake --build --preset default
 ```
 
 ## 4. Running
