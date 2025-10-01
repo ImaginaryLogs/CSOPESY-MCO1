@@ -10,13 +10,15 @@ int main() {
   std::cin.tie(nullptr);
 
   // Welcome banner
-  std::cout << "Welcome to Marquee Console!\n"
-            << "Developers :"
+  std::cout << "\n\n***********************************************\n\n"
+            << "Welcome to the Marquee Console!\n\n"
+            << "Developers:\n"
             << " - Christian Joseph C. Bunyi\n"
             << " - Roan Cedric V. Campo\n"
             << " - Enzo Rafael S. Chan\n"
-            << " - Mariella Jeanne A. Dellosa\n"
-            << "Tip        : Type 'help' to see available commands.\n\n"
+            << " - Mariella Jeanne A. Dellosa\n\n"
+            << "Tip: Type 'help' to see available commands.\n"
+            << "\n***********************************************\n"
             << std::flush;
 
   MarqueeConsole console;
