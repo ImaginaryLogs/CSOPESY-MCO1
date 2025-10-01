@@ -240,7 +240,7 @@ void CommandHandler::handleCommand(const std::string& line) {
   // >>> SET TEXT
   if (cmd == "set_text") {
     auto trimQuotes = [](std::string s){
-      auto l = s.find_first_not_of(" \t");
+    auto l = s.find_first_not_of(" \t");
       auto r = s.find_last_not_of(" \t");
       if (l == std::string::npos) return std::string{};
       s = s.substr(l, r - l + 1);
@@ -249,7 +249,13 @@ void CommandHandler::handleCommand(const std::string& line) {
       }
       return s;
     };
+
     std::string txt = trimQuotes(rest);
+
+    // adds space at the end of the marquee text
+    constexpr int GAP = 1; // tweak gap size here
+    txt += std::string(GAP, ' ');
+
     ctx.setText(txt);
     paintMessage(ctx, line, "Text updated.");
     return;
