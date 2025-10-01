@@ -4,7 +4,7 @@
  *
  * This class reads command strings from a queue (usually pushed by the keyboard
  * thread) and runs them. It communicates with the display handler (for starting/stopping
- * the marquee) and the file reader (for loading text).
+ * the marquee).
  *
  * Commands from the spec:
  *   - help
@@ -13,16 +13,12 @@
  *   - stop_marquee
  *   - set_speed <ms>
  *   - set_text <text>
- *
- * Extra (optional):
- *   - load_file <path>
  */
 
 #pragma once
 
 #include "Context.hpp"
 #include "DisplayHandler.hpp"
-#include "FileReaderHandler.hpp"
 
 #include <condition_variable>
 #include <mutex>
@@ -35,10 +31,10 @@
  * @class CommandHandler
  * @brief Consumes command lines and executes them, one by one.
  *
- * How to use:
- *  - Build it with a shared MarqueeContext.
- *  - Hook up the DisplayHandler and FileReaderHandler (if you have them).
- *  - Run operator() on its own thread so it can block/wake on the queue.
+ * Usage:
+ *  - Construct with a shared MarqueeContext.
+ *  - Hook up the DisplayHandler.
+ *  - Run operator() on its own thread; blocks on a condition variable when idle.
  *  - Call enqueue() from any producer (like the keyboard thread).
  */
 class CommandHandler : public Handler {
@@ -48,8 +44,7 @@ public:
      * @param c Shared MarqueeContext with all the shared flags, locks, etc.
      */
     explicit CommandHandler(MarqueeContext& c) 
-        : Handler(c), display(nullptr), fileReader(nullptr) {
-        // Note: Display and fileReader are optional and can be set later
+        : Handler(c), display(nullptr) {
     }
 
     /**
@@ -69,17 +64,9 @@ public:
     }
 
     /**
-     * @brief Provide a pointer to the file reader so we can load text from a file.
-     * @param f FileReaderHandler to use (can be nullptr to detach).
-     */
-    void addFileReaderHandler(FileReaderHandler* f) {
-        fileReader = f;
-    }
-
-    /**
      * @brief Push a new command line into the queue.
      *
-     * Thread-safe. Multiple producers can call this at the same time.
+     * Thread-safe. Multiple threads can call this at the same time.
      *
      * @param cmd Raw command, e.g. "set_speed 120".
      */
@@ -96,7 +83,6 @@ private:
     // >>> POINTERS TO BE CALLED
 
     DisplayHandler* display;          // Display handler used to start/stop marquee
-    FileReaderHandler* fileReader;    // File reader (extra feature)
 
     // >>> HELPERS
     

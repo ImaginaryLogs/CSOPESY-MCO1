@@ -1,8 +1,8 @@
 /**
-
+ *
  * @file CommandHandler.cpp
  * @brief The command runner's implementation.
-
+ *
  *
  * Maintains a consistent console layout to prevent lines from interleaving with the
  * marquee. By locking the cout mutex, the program ensures to print one line at a time.
@@ -11,12 +11,12 @@
  * The format of the printed output is as follows:
  *
  * > prev_command
- * Previous feedback messages
+ * Previous feedback message
  *
  * > current_command
- * Current feedback, which may consist of several lines
+ * Current feedback message
  * marquee (one line; this is updated above the prompt by the display thread)
- * > new_prompt (to be added)
+ * > new_prompt (to be entered)
  *
  * We consistently:
  * 1) return to the prompt anchor,
@@ -68,7 +68,6 @@ static void writeHelpUnlocked(std::ostream& os) {
      << "  stop_marquee                      - stops the animation of the marquee\n"
      << "  set_text <text>                   - sets the text of the marquee\n"
      << "  set_speed <ms>                    - sets the refresh rate in milliseconds\n"
-     << "  load_file <path>                  - (extra) loads ASCII file into marquee text\n"
      << "  exit                              - exits the program\n";
      << "  (aliases) mqa=start_marquee, mqo=stop_marquee, mqt=set_text, mqs=set_speed\n"
 
@@ -253,33 +252,6 @@ void CommandHandler::handleCommand(const std::string& line) {
     std::string txt = trimQuotes(rest);
     ctx.setText(txt);
     paintMessage(ctx, line, "Text updated.");
-    return;
-  }
-
-  // >>> LOAD FILE (extra)
-  if (cmd == "load_file") {
-    auto trimQuotes = [](std::string s){
-      auto l = s.find_first_not_of(" \t");
-      auto r = s.find_last_not_of(" \t");
-      if (l == std::string::npos) return std::string{};
-      s = s.substr(l, r - l + 1);
-      if (s.size() >= 2 && ((s.front()=='"' && s.back()=='"') || (s.front()=='\'' && s.back()=='\''))) {
-        s = s.substr(1, s.size()-2);
-      }
-      return s;
-    };
-    std::string path = trimQuotes(rest);
-    if (!fileReader) {
-      paintMessage(ctx, line, "File reader not available.");
-      return;
-    }
-    fileReader->loadASCII(path, [this](const std::string &content){
-      if (!content.empty()) {
-        ctx.setText(content);
-        if (display) display->start();
-      }
-    });
-    paintMessage(ctx, line, "Loaded: " + path);
     return;
   }
 

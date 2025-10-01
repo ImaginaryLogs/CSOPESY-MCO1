@@ -9,7 +9,6 @@
 #include "DisplayHandler.hpp"
 #include "KeyboardHandler.hpp"
 #include "CommandHandler.hpp"
-#include "FileReaderHandler.hpp"
 #include <thread>
 #include <vector>
 
@@ -17,7 +16,7 @@
  * @brief The top-level console controller that connects everything.
  *
  * Oversees the marquee system's setup and shutdown, including the display,
- * file loading, keyboard input, and command parsing.
+ * keyboard input and command parsing.
  * Aside from initiation, threads wire together here.
 */
 class MarqueeConsole {
@@ -39,6 +38,5 @@ private:
     DisplayHandler display;                 // renders the animated marquee onto the console
     KeyboardHandler keyboard;               // captures inputs from keystrokes
     CommandHandler command;                 // processes and executes the corresponding actions of commands
-    FileReaderHandler fileReader;           // optional handler for loading text files
     std::vector<std::thread> threads;       // all handler and supervisor threads
 };

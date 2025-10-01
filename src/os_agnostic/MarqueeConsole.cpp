@@ -10,7 +10,7 @@
 /**
  * @brief Wires up internal handlers and builds the console.
  *
- * Configures the file reader, command processor, keyboard, and display.
+ * Configures the command, keyboard, and display.
  * and uses callback binding and handler injection to connect them.
  */
 MarqueeConsole::MarqueeConsole():
@@ -18,11 +18,9 @@ MarqueeConsole::MarqueeConsole():
     display(ctx),
     keyboard(ctx),
     command(ctx),
-    fileReader(ctx)
 {
-    // Hands off the file reader and display to the command processor.
+    // Hands off the display to the command processor.
     command.addDisplayHandler(&display);
-    command.addFileReaderHandler(&fileReader);
 
     // Commands entered by the user are given to the command processor via the keyboard.
     keyboard.setSink([this](std::string cmd) {
@@ -52,7 +50,7 @@ void MarqueeConsole::run() {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
 
-        // Optional user feedback (disabled by default)
+        // Optional user feedback (removed this bc of duplicates)
         // {
         //     std::lock_guard<std::mutex> lock(ctx.coutMutex);
         //     std::cout << "\nExiting..." << std::endl;
