@@ -35,19 +35,173 @@ The main function can be found in `src/main.cpp`. Jump to [2. Building (CMake pr
 
 ## 1. Overview
 
-The Marquee Console is an OS emulator that provides a command-line interface for displaying scrolling text animations. It consists of several key components working together to create a responsive marquee display system.
+The Marquee Console is a simple multithreaded program that shows scrolling text while letting users type commands. It demonstrates basic operating system concepts like threads working together and sharing data safely.
+
+**How it works:**
+- **Multiple Threads**: The program uses 4 separate threads - one for display, one for keyboard input, one for processing commands, and one supervisor thread
+- **Shared Memory**: All threads share the same data (like the text to display and animation speed) but use locks to prevent conflicts
+- **Thread Safety**: Uses mutexes (locks) to make sure only one thread can change shared data at a time
+- **Communication**: Threads talk to each other through shared variables and message queues
+
+```cpp
+// Shared data structure that all threads can access
+struct MarqueeContext {
+    std::mutex coutMutex;           // Lock for printing to screen
+    std::mutex textMutex;           // Lock for changing marquee text
+    std::atomic<bool> exitRequested{false};  // Flag to tell all threads to stop
+    std::atomic<int> speedMs{200};  // How fast the animation runs
+    std::string marqueeText;        // The text being displayed
+};
+```
+
+This design lets the user type commands while the text keeps scrolling smoothly in the background.
 
 ### 1.1. Console UI
 
-The main console interface that coordinates all components and provides the user interaction layer. It manages the overall application lifecycle and thread coordination.
+The `MarqueeConsole` class is like the "manager" of the whole program. It starts up all the different threads and makes sure they can talk to each other properly.
+
+**What it does:**
+- **Starts Threads**: Creates 4 worker threads when the program begins
+- **Connects Components**: Links the keyboard input to the command processor, and the command processor to the display
+- **Manages Shutdown**: Makes sure all threads stop cleanly when the program exits
+
+```cpp
+class MarqueeConsole {
+private:
+    MarqueeContext ctx;        // Shared data for all threads
+    DisplayHandler display;    // Handles the scrolling animation
+    KeyboardHandler keyboard;  // Reads what the user types
+    CommandHandler command;    // Processes user commands
+};
+```
+
+**How components connect:**
+```cpp
+// In the constructor, we connect the pieces:
+MarqueeConsole::MarqueeConsole() {
+    // When user types a command, send it to the command handler
+    keyboard.setSink([this](std::string cmd) {
+        command.enqueue(cmd);
+    });
+    
+    // Let the command handler control the display
+    command.addDisplayHandler(&display);
+}
+```
+
+Think of it like a factory assembly line - each worker (thread) has a specific job, and the console manager coordinates them all.
 
 ### 1.2. Command interpreter
 
-Handles command parsing and execution. Processes user commands from a thread-safe queue and coordinates with other components to execute marquee operations.
+The `CommandHandler` processes user commands using a simple queue system. When you type a command and press Enter, it gets added to a queue, and the command handler processes them one by one in the order they were typed.
+
+**What it does:**
+- **Receives commands** through a thread-safe queue
+- **Parses command strings** to understand what the user wants
+- **Controls the display** (start/stop_marquee)
+- **Updates text and speed settings** (set_text/speed)
+- **Loads files** when requested
+
+**How it works:**
+- **Command Queue**: Uses a FIFO (First In, First Out) queue to store commands
+- **Thread Safety**: Uses a mutex (lock) so multiple threads can't mess up the queue at the same time
+- **Waiting**: When there are no commands, the thread goes to sleep until a new command arrives
+- **Processing**: Takes commands from the queue and figures out what to do with them
+
+```cpp
+class CommandHandler {
+private:
+    std::queue<std::string> commandQueue;  // Stores commands waiting to be processed
+    std::mutex queueMutex;                 // Lock to protect the queue
+    std::condition_variable queueCv;       // Wakes up the thread when new commands arrive
+};
+```
+
+**Adding a command to the queue:**
+```cpp
+void CommandHandler::enqueue(std::string cmd) {
+    // Lock the queue, add the command, then notify the worker
+    std::lock_guard<std::mutex> lock(queueMutex);
+    commandQueue.push(cmd);
+    queueCv.notify_one();  // Wake up the sleeping command processor
+}
+```
+
+**Processing commands:**
+```cpp
+void CommandHandler::operator()() {
+    while (program_is_running) {
+        // Wait for a command to arrive
+        wait_for_command();
+        
+        // Take the next command and process it
+        std::string cmd = commandQueue.front();
+        commandQueue.pop();
+        handleCommand(cmd);  // Do what the command says
+    }
+}
+```
+
+**Available Commands:**
+- `help` — Show all available commands
+- `start_marquee` — Start the scrolling text animation
+- `stop_marquee` — Stop the animation
+- `set_text <message>` — Change what text is displayed
+- `set_speed <number>` — Change how fast the text scrolls
+- `exit` — Close the program
 
 ### 1.3. Display handler
 
-Manages the visual output and marquee animation rendering. Handles console display updates and text scrolling with customizable refresh rates.
+The `DisplayHandler` creates the scrolling text animation. It runs in its own thread and continuously updates what you see on screen while making sure it doesn't interfere with your typing.
+
+**What it does:**
+- **Animation Loop**: Continuously moves the text one character to the left to create scrolling effect
+- **Thread Safety**: Uses locks to make sure the display doesn't conflict with user input
+- **Smart Printing**: Knows where the user is typing and displays the marquee above it
+- **Speed Control**: Checks the animation speed setting each time it updates
+
+```cpp
+class DisplayHandler {
+public:
+    void start() { /* Turn on the animation */ }
+    void stop()  { /* Turn off the animation */ }
+    /* - */
+}
+```
+
+
+**The main animation loop:**
+```cpp
+void DisplayHandler::operator()() {
+    while (program_is_running) {
+        if (animation_is_on) {
+            // Get the current text safely
+            std::string current_text = ctx.getText();
+            
+            // Scroll it one position
+            current_text = scrollOnce(current_text);
+            
+            // Save it back
+            ctx.setText(current_text);
+            
+            // Display it on screen (with proper locking)
+            {
+                std::lock_guard<std::mutex> lock(ctx.coutMutex);
+                std::cout << current_text << std::flush;
+            }
+        }
+        
+        // Wait before next frame (speed control)
+        std::this_thread::sleep_for(std::chrono::milliseconds(animation_speed));
+    }
+}
+```
+
+**Key Features:**
+- **Shared Data**: All threads can access the same marquee text and animation settings
+- **Atomic Reads**: Speed changes are read instantly without stopping the animation
+- **Mutex Protection**: Uses locks to prevent multiple threads from printing at the same time
+- **Immediate Updates**: Text and speed changes take effect on the very next animation frame
 
 ### 1.4. Keyboard handler
 
