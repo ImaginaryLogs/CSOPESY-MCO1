@@ -15,7 +15,7 @@ A command-line marquee console application that displays scrolling text with cus
   - [1.2. Command interpreter](#12-command-interpreter)
   - [1.3. Display handler](#13-display-handler)
   - [1.4. Keyboard handler](#14-keyboard-handler)
-  - [1.5. Marquee logic](#15-marquee-logic)
+  - [1.5. Marquee animation logic](#15-marquee-animation-logic)
   - [1.6. File handler](#16-file-handler)
 - [2. Prerequisites](#2-prerequisites)
   - [2.1. Windows (VS 2022 Developer Command Prompt)](#21-windows-vs-2022-developer-command-prompt)
@@ -57,21 +57,146 @@ Manages the visual output and marquee animation rendering. Handles console displ
 
 ### 1.4. Keyboard handler
 
-Provides cross-platform keyboard input handling. Uses OS-specific implementations for Windows (`_kbhit/_getch`) and POSIX systems (`termios` raw + `select()` + `read()`).
+The keyboard handler runs in its own thread and collects keystrokes into a buffer with basic editing (including Backspace).
 
-> expound on technical stuff needed for the technical report
+When the user presses Enter, it submits the buffered line immediately to the command interpreter through an injected sink callback.
 
-### 1.5. Marquee logic
+It remains responsive by using non-blocking polling through a platform-specific scanner (Windows uses `_kbhit/_getch`, POSIX uses raw `termios` + `select()` + `read()`).
 
-Implements the core scrolling algorithm and animation timing. Manages text rotation and display updates with thread-safe synchronization.
+It keeps the prompt clean by allocating a cursor anchor and redrawing the buffer under a console mutex so typing never interleaves with marquee output.
 
-> expound on technical stuff needed for the technical report
+```21:48:src/os_agnostic/KeyboardHandler.hpp
+class KeyboardHandler : public Handler {
+public:
+    explicit KeyboardHandler(MarqueeContext& c) : Handler(c) {}
+    void operator()();
+    void setSink(std::function<void(std::string)> sink) {
+        deliver = std::move(sink);
+    }
+private:
+    std::function<void(std::string)> deliver;
+};
+```
+
+Design note: we inject a sink rather than hard-wiring a dependency, which keeps input collection decoupled from command processing and simplifies testing.
+
+```17:27:src/os_agnostic/KeyboardHandler.cpp
+static void ensurePromptAnchor(MarqueeContext& ctx) {
+    if (!ctx.getHasPromptLine()) {
+        std::lock_guard<std::mutex> lock(ctx.coutMutex);
+        std::cout << "\n\n" << "> " << "\x1b[s" << std::flush;
+        ctx.setHasPromptLine(true);
+    }
+}
+```
+
+This anchor reserves space for status and marquee above the prompt and lets us redraw without flicker.
+
+```39:49:src/os_agnostic/KeyboardHandler.cpp
+static void redrawPrompt(MarqueeContext& ctx, const std::string& buf) {
+    std::lock_guard<std::mutex> lock(ctx.coutMutex);
+    std::cout << "\x1b[u" << "\r\x1b[2K> " << buf << "\x1b[s" << std::flush;
+    ctx.setHasPromptLine(true);
+}
+```
+
+Redrawing clears the line, restores to the anchor, prints the prompt and buffer, then saves the new end-of-line anchor.
+
+```59:86:src/os_agnostic/KeyboardHandler.cpp
+void KeyboardHandler::operator()() {
+    ctx.phase_barrier.arrive_and_wait();
+    Scanner scan; std::string buffer;
+    ensurePromptAnchor(ctx);
+    while (!ctx.exitRequested.load()) {
+        if (!ctx.getHasPromptLine()) { ensurePromptAnchor(ctx); }
+        int ch = scan.poll(); if (ch < 0) continue;
+        if (ch == '\n') { const std::string submitted = buffer; buffer.clear(); if (deliver) deliver(submitted);
+        } else if (ch == 3) { ctx.exitRequested.store(true); break;
+        } else if (ch == 127 || ch == 8) { if (!buffer.empty()) { buffer.pop_back(); redrawPrompt(ctx, buffer); }
+        } else if (ch >= 32 && ch < 127) { buffer.push_back(static_cast<char>(ch)); redrawPrompt(ctx, buffer); }
+    }
+}
+```
+
+The main loop polls without blocking, handles Enter for submission, Ctrl+C for shutdown, Backspace for editing, and printable ASCII for input.
+
+### 1.5. Marquee animation logic
+
+The marquee renderer animates a smooth single-line scroll by rotating the text one character at a time and redrawing on a single console line just above the prompt.
+
+It respects the configured refresh interval and active state from shared context and avoids tearing by updating text under a mutex and guarding redraws with a console mutex.
+
+```17:50:src/os_agnostic/DisplayHandler.hpp
+class DisplayHandler : public Handler {
+public:
+    explicit DisplayHandler(MarqueeContext& c) : Handler(c) {}
+    void operator()();
+    void start() { ctx.setMarqueeActive(true); }
+    void stop()  { ctx.setMarqueeActive(false); }
+private:
+    std::string scrollOnce(const std::string& s);
+};
+```
+
+These small surface methods (`start/stop`) flip context flags while the render loop coordinates with other threads via the barrier and latch.
+
+```38:42:src/os_agnostic/DisplayHandler.cpp
+std::string DisplayHandler::scrollOnce(const std::string& s) {
+    if (s.empty()) return s;
+    std::string out = s.substr(1) + s.substr(0, 1);
+    return out;
+}
+```
+
+The scroll primitive implements the classic “rotate-first-char-to-end” behavior for marquee movement.
+
+```71:90:src/os_agnostic/DisplayHandler.cpp
+{
+    std::lock_guard<std::mutex> lock(ctx.coutMutex);
+    if (ctx.getHasPromptLine()) {
+        std::cout << "\x1b[u" << "\x1b[1F" << "\r\x1b[2K" << cur << "\x1b[u" << std::flush;
+    } else {
+        std::cout << "\r\x1b[2K" << cur << std::flush;
+    }
+}
+std::this_thread::sleep_for(std::chrono::milliseconds(ctx.speedMs.load()));
+```
+
+When a prompt is present, we temporarily restore the cursor and draw a frame above it, then restore the prompt’s position; otherwise we draw inline.
 
 ### 1.6. File handler
 
-Optional component for loading text content from ASCII files. Provides the `load_file` command functionality for external text input.
+The file reader opens a given path, streams the entire ASCII file into a string, and returns the result via a callback so the command interpreter can immediately assign it as the marquee text.
 
-> expound on technical stuff needed for the technical report
+Errors such as missing files or read failures are printed under the console mutex and reported to the callback as an empty string, and file I/O is done without holding shared locks to keep the system responsive.
+
+```18:37:src/os_agnostic/FileReaderHandler.hpp
+class FileReaderHandler : public Handler {
+public:
+    explicit FileReaderHandler(MarqueeContext& c) : Handler(c) {}
+    void loadASCII(const std::string& path, std::function<void(const std::string&)> cb);
+};
+```
+
+Keeping the API callback-based lets `CommandHandler` decide how and when to apply the loaded content to the shared text under the appropriate mutex.
+
+```22:40:src/os_agnostic/FileReaderHandler.cpp
+void FileReaderHandler::loadASCII(const std::string& path, std::function<void(const std::string&)> cb) {
+    try {
+        std::ifstream in(path);
+        if (!in) { std::lock_guard<std::mutex> lock(ctx.coutMutex); std::cout << "Error: cannot open file: " << path << std::endl; if (cb) cb(std::string{}); return; }
+        std::ostringstream ss; ss << in.rdbuf();
+        auto content = ss.str();
+        if (cb) cb(content);
+    } catch (const std::exception& e) {
+        std::lock_guard<std::mutex> lock(ctx.coutMutex);
+        std::cout << "Error reading file '" << path << "': " << e.what() << std::endl;
+        if (cb) cb(std::string{});
+    }
+}
+```
+
+All file I/O occurs outside locks, and only console messages are serialized to avoid interleaving with other output.
 
 ## 2. Prerequisites
 
