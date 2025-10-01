@@ -128,7 +128,7 @@ The marquee renderer animates a smooth single-line scroll by rotating the text o
 
 It prints according to a configured refresh interval and active state from shared context and avoids tearing by updating text under a mutex and guarding redraws with a console mutex.
 
-Before entering the loop, all handlers synchronize via a barrier and the renderer enables Windows virtual terminal processing so ANSI cursor commands work consistently across platforms (on POSIX, this helper is a no-op).
+Before entering the loop, all handlers synchronize via a barrier and the renderer enables Windows virtual terminal processing so ANSI cursor commands work consistently across platforms.
 
 ```17:50:src/os_agnostic/DisplayHandler.hpp
 class DisplayHandler : public Handler {
