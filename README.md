@@ -341,7 +341,7 @@ Only console messages are serialized to avoid interleaving with other output.
 The program utilizes CMake and has to be built in the x64 Native Tools Command Prompt.
 
 ```sh
-cmake --preset default
+cmake --preset default --fresh
 cmake --build --preset default
 ```
 
