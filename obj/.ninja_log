@@ -1,8 +1,9 @@
 # ninja log v5
-35	1515	7810251610078899	CMakeFiles/app.dir/src/os_agnostic/KeyboardHandler.cpp.obj	a294c2c084a58036
 43	451	7810251599437614	CMakeFiles/app.dir/src/os_dependent/Scanner_win32.cpp.obj	bd88e6541fc7275
+35	1515	7810251610078899	CMakeFiles/app.dir/src/os_agnostic/KeyboardHandler.cpp.obj	a294c2c084a58036
 1	1618	7810251611106787	CMakeFiles/app.dir/src/main.cpp.obj	bb83d061804f8ae4
-27	3088	7810251625855037	CMakeFiles/app.dir/src/os_agnostic/DisplayHandler.cpp.obj	191629faf7bf96cd
 1	1544	7810253591626716	CMakeFiles/app.dir/src/os_agnostic/CommandHandler.cpp.obj	d4c8b769b2db413e
-8	2178	7810253597970810	CMakeFiles/app.dir/src/os_agnostic/MarqueeConsole.cpp.obj	c8d5968be63bfe8d
+27	3088	7810251625855037	CMakeFiles/app.dir/src/os_agnostic/DisplayHandler.cpp.obj	191629faf7bf96cd
 2179	2682	7810253602828543	C:/Users/marie/OneDrive/Documents/Academics/College/Subjects/CSOPESY/VSC Marquee Console v2/CSOPESY-MCO1/bin/app.exe	1b1d61f6cd5ddfca
+8	2178	7810253597970810	CMakeFiles/app.dir/src/os_agnostic/MarqueeConsole.cpp.obj	c8d5968be63bfe8d
+11	2826	7810273252200349	CMakeFiles/app.dir/src/os_agnostic/MarqueeConsole.cpp.obj	c8d5968be63bfe8d
