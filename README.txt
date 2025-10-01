@@ -14,7 +14,7 @@ The main function can be found in src/main.cpp.
 The program utilizes CMake and has to be built in the x64 Native Tools Command Prompt.
 
 ```sh
-cmake --preset default
+cmake --preset default --fresh
 cmake --build --preset default
 ```
 
