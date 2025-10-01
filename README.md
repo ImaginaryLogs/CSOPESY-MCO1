@@ -63,7 +63,7 @@ When the user presses Enter, it submits the buffered line immediately to the com
 
 It remains responsive by using non-blocking polling through a platform-specific scanner (Windows uses `_kbhit/_getch`, POSIX uses raw `termios` + `select()` + `read()`).
 
-It keeps the prompt clean by allocating a cursor anchor and redrawing the buffer under a console mutex so typing never interleaves with marquee output.
+Moreover, it aims to keep the prompt clean by allocating a cursor anchor and redrawing the buffer under a console mutex so typing never interleaves with marquee output.
 
 ```21:48:src/os_agnostic/KeyboardHandler.hpp
 class KeyboardHandler : public Handler {
@@ -78,7 +78,7 @@ private:
 };
 ```
 
-Design note: we inject a sink rather than hard-wiring a dependency, which keeps input collection decoupled from command processing and simplifies testing.
+As a design consideration, we inject a sink rather than hard-wiring a dependency, which keeps input collection decoupled from command processing, which also simplifies testing.
 
 ```17:27:src/os_agnostic/KeyboardHandler.cpp
 static void ensurePromptAnchor(MarqueeContext& ctx) {
@@ -124,7 +124,7 @@ The main loop polls without blocking, handles Enter for submission, Ctrl+C for s
 
 The marquee renderer animates a smooth single-line scroll by rotating the text one character at a time and redrawing on a single console line just above the prompt.
 
-It respects the configured refresh interval and active state from shared context and avoids tearing by updating text under a mutex and guarding redraws with a console mutex.
+It prints according to a configured refresh interval and active state from shared context and avoids tearing by updating text under a mutex and guarding redraws with a console mutex.
 
 ```17:50:src/os_agnostic/DisplayHandler.hpp
 class DisplayHandler : public Handler {
@@ -148,7 +148,7 @@ std::string DisplayHandler::scrollOnce(const std::string& s) {
 }
 ```
 
-The scroll primitive implements the classic “rotate-first-char-to-end” behavior for marquee movement.
+The scroll primitive essentially implements a simple “rotate-first-char-to-end” behavior for marquee movement.
 
 ```71:90:src/os_agnostic/DisplayHandler.cpp
 {
@@ -168,7 +168,7 @@ When a prompt is present, we temporarily restore the cursor and draw a frame abo
 
 The file reader opens a given path, streams the entire ASCII file into a string, and returns the result via a callback so the command interpreter can immediately assign it as the marquee text.
 
-Errors such as missing files or read failures are printed under the console mutex and reported to the callback as an empty string, and file I/O is done without holding shared locks to keep the system responsive.
+Additionally, errors such as missing files or read failures are printed under the console mutex and reported to the callback as an empty string, and file I/O is done without holding shared locks to keep the system responsive.
 
 ```18:37:src/os_agnostic/FileReaderHandler.hpp
 class FileReaderHandler : public Handler {
