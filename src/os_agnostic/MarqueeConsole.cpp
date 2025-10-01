@@ -32,10 +32,10 @@ void MarqueeConsole::run() {
     while (!ctx.exitRequested.load()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-    {
-      std::lock_guard<std::mutex> lock(ctx.coutMutex);
-      std::cout << "\nExiting..." << std::endl;
-    }
+    // {
+    //   std::lock_guard<std::mutex> lock(ctx.coutMutex);
+    //   std::cout << "\nExiting..." << std::endl;
+    // }
     ctx.stop_latch.count_down();
   });
 
