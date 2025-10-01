@@ -6,7 +6,16 @@
 
 ![Year, Term, Course](https://img.shields.io/badge/AY2526--T1-CSOPESY-blue) ![C++](https://img.shields.io/badge/C++-%2300599C.svg?logo=c%2B%2B&logoColor=white)
 
-A command-line marquee console application that displays scrolling text with customizable speed and controls. Built with modern C++20/23 features including threading, synchronization primitives, and cross-platform compatibility.
+A command-line marquee console application that displays scrolling text with customizable speed and controls. Built with threading, synchronization primitives, and cross-platform compatibility.
+
+Made by the following students of CSOPESY S13:
+
+- Christian Joseph C. Bunyi
+- Enzo Rafael S. Chan
+- Roan Cedric V. Campo
+- Mariella Jeanne A. Dellosa
+
+The main function can be found in `src/main.cpp`. Jump to [2. Building (CMake presets)](#2-building-cmake-presets) for instructions on how to run the program.
 
 ## Table of Contents <!-- omit from toc -->
 
@@ -16,41 +25,29 @@ A command-line marquee console application that displays scrolling text with cus
   - [1.3. Display handler](#13-display-handler)
   - [1.4. Keyboard handler](#14-keyboard-handler)
   - [1.5. Marquee animation logic](#15-marquee-animation-logic)
-- [2. Prerequisites](#2-prerequisites)
-  - [2.1. Windows (VS 2022 Developer Command Prompt)](#21-windows-vs-2022-developer-command-prompt)
-  - [2.2. Linux/macOS/WSL](#22-linuxmacoswsl)
-- [3. Building (CMake presets)](#3-building-cmake-presets)
-- [4. Running](#4-running)
-  - [4.1. Windows (VS 2022 Developer Command Prompt)](#41-windows-vs-2022-developer-command-prompt)
-  - [4.2. Linux/macOS/WSL](#42-linuxmacoswsl)
-- [5. Usage](#5-usage)
-  - [5.1. Commands](#51-commands)
-  - [5.2. Demo](#52-demo)
-- [6. Technical Notes](#6-technical-notes)
+- [2. Building (CMake presets)](#2-building-cmake-presets)
+- [3. Running](#3-running)
+  - [3.1. Windows (VS 2022 Developer Command Prompt)](#31-windows-vs-2022-developer-command-prompt)
+  - [3.2. Linux/macOS/WSL](#32-linuxmacoswsl)
+- [4. Usage](#4-usage)
+  - [4.1. Commands](#41-commands)
+  - [4.2. Demo](#42-demo)
 
 ## 1. Overview
 
 The Marquee Console is an OS emulator that provides a command-line interface for displaying scrolling text animations. It consists of several key components working together to create a responsive marquee display system.
 
-> expound on technical stuff needed for the technical report
-
 ### 1.1. Console UI
 
 The main console interface that coordinates all components and provides the user interaction layer. It manages the overall application lifecycle and thread coordination.
-
-> expound on technical stuff needed for the technical report
 
 ### 1.2. Command interpreter
 
 Handles command parsing and execution. Processes user commands from a thread-safe queue and coordinates with other components to execute marquee operations.
 
-> expound on technical stuff needed for the technical report
-
 ### 1.3. Display handler
 
 Manages the visual output and marquee animation rendering. Handles console display updates and text scrolling with customizable refresh rates.
-
-> expound on technical stuff needed for the technical report
 
 ### 1.4. Keyboard handler
 
@@ -171,7 +168,7 @@ We decided to read `speedMs` atomically on each iteration to make speed changes 
 
 Only console messages are serialized to avoid interleaving with other output.
 
-## 2. Prerequisites
+<!-- ## 2. Prerequisites
 
 ### 2.1. Windows (VS 2022 Developer Command Prompt)
 
@@ -183,32 +180,32 @@ Only console messages are serialized to avoid interleaving with other output.
 
 - GCC 11+ or Clang 14+ with C++23 support
 - Make utility
-- pthread library
+- pthread library -->
 
-## 3. Building (CMake presets)
+## 2. Building (CMake presets)
 
 ```sh
 cmake --preset default
 cmake --build --preset default
 ```
 
-## 4. Running
+## 3. Running
 
-### 4.1. Windows (VS 2022 Developer Command Prompt)
+### 3.1. Windows (VS 2022 Developer Command Prompt)
 
 ```bat
 bin\app.exe
 ```
 
-### 4.2. Linux/macOS/WSL
+### 3.2. Linux/macOS/WSL
 
 ```bash
 ./bin/app
 ```
 
-## 5. Usage
+## 4. Usage
 
-### 5.1. Commands
+### 4.1. Commands
 
 **Required Commands (per PDF spec):**
 
@@ -219,20 +216,11 @@ bin\app.exe
 - `set_speed <ms>` — sets refresh in milliseconds
 - `exit` — terminates the console
 
-### 5.2. Demo
+### 4.2. Demo
 
-1. Start the application
+1. Run the application
 2. Use `set_text Hello World` to set the marquee text
 3. Use `set_speed 100` to set the animation speed (100ms refresh)
 4. Use `start_marquee` to begin the animation
 5. Use `stop_marquee` to pause the animation
 6. Use `exit` to terminate the application
-
-## 6. Technical Notes
-
-- Uses `std::barrier`, `std::latch`, `std::atomic`, `std::mutex`, and a `std::condition_variable`-based command queue
-- `NUM_MARQUEE_HANDLERS` is 4 and exactly 4 threads participate in the barrier/latch so there is no deadlock
-- Console output is synchronized using `coutMutex` to prevent interleaved lines
-- Keyboard handling is OS-dependent:
-  - Windows: `_kbhit/_getch`
-  - POSIX: `termios` raw + `select()` + `read()`
