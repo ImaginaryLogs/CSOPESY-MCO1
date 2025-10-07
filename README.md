@@ -15,7 +15,7 @@ Made by the following students of CSOPESY S13:
 - Roan Cedric V. Campo
 - Mariella Jeanne A. Dellosa
 
-The main function can be found in `src/main.cpp`. Jump to [2. Building (CMake presets)](#2-building-cmake-presets) for instructions on how to run the program.
+The main function can be found in `src/main.cpp`. Jump to [2. Building](#2-building) for instructions on how to build and run the program.
 
 ## Table of Contents <!-- omit from toc -->
 
