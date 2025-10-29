@@ -1,4 +1,4 @@
-# Marquee Console <!-- omit from toc -->
+# Marquee Console Remuria <!-- omit from toc -->
 
 <!-- ![title](./assets/readme/title.jpg) -->
 
